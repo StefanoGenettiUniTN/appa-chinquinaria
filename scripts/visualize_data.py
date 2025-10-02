@@ -236,7 +236,7 @@ def main():
             pollutants_str = '_'.join(pollutants)
         
         # Create descriptive folder name within plots directory
-        default_output_name = f"{start_date}_to_{end_date}_{pollutants_str}"
+        default_output_name = f"plots_{start_date}_to_{end_date}_{pollutants_str}"
         output_dir = project_root / "plots" / default_output_name
     else:
         output_dir = project_root / "plots" / args.output_dir
