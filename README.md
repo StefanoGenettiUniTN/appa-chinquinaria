@@ -50,125 +50,92 @@ A comprehensive air quality data collection and analysis toolkit for the Public 
 
 ## Usage
 
-### APPA Trento Data
+### Quick Start
 
-#### Download Data
 ```bash
+# Download APPA Trento data
 python scripts/bulk_download_appa.py --start 2025-01-01 --end 2026-01-01
-```
 
-For more options:
-```bash
-python scripts/bulk_download_appa.py --help
-```
+# Download EEA data
+python scripts/bulk_download_eea.py \
+    --output_csv eea_measurements.csv \
+    --metadata ./metadata.csv \
+    --api_countries IT \
+    --api_pollutants PM10
 
-#### Visualize APPA Data
-Create time series plots and station comparisons:
-
-```bash
-# Visualize all pollutants (auto-generated output folder)
-python scripts/visualize_data.py
-
-# Visualize specific pollutant
+# Visualize data
 python scripts/visualize_data.py --pollutant PM10
 
-# Custom data folder
-python scripts/visualize_data.py --data-folder appa-data --pollutant NO2
-```
-
-**What it plots:**
-- **Time Series**: Daily average concentrations over time for each station and pollutant
-- **Station Comparison**: Min-max ranges and daily means for each station
-- **Distribution**: Histograms showing concentration frequency distributions
-
-#### APPA Correlation Analysis
-Analyze monthly correlations between stations:
-
-```bash
-# Analyze all pollutants (auto-generated output folder)
-python scripts/correlation_analysis.py
-
-# Analyze specific pollutant
+# Analyze correlations
 python scripts/correlation_analysis.py --pollutant PM10
-
-# Custom output directory
-python scripts/correlation_analysis.py --output-dir my_correlations
 ```
 
-**What it plots:**
-- **Monthly Correlation Series**: Average correlation between stations over 30-day intervals
-- **Correlation Heatmap**: Correlation strength across pollutants and time periods
-- **Correlation Distribution**: Histograms of correlation values for each pollutant
-- **Station Pairwise Correlations**: Individual correlation time series for each station pair
+### Detailed Documentation
 
-### EEA Data
+For comprehensive usage instructions, see the dedicated documentation files:
 
-#### Download EEA Data
+- **[APPA Download Guide](docs/appa-download-guide.md)**: Complete guide for downloading APPA Trento data
+- **[EEA Download Guide](docs/eea-download-guide.md)**: Complete guide for downloading EEA data
+- **[Data Analysis Guide](docs/data-analysis-guide.md)**: Guide for visualization and correlation analysis
 
-**Example: Fetch data from API**
+### Basic Commands
+
+#### APPA Trento Data
 ```bash
-python bulk_download_eea.py \
-    --output_folder ./output \
+# Download data
+python scripts/bulk_download_appa.py --start 2025-01-01 --end 2026-01-01
+
+# Visualize data
+python scripts/visualize_data.py --pollutant PM10
+
+# Correlation analysis
+python scripts/correlation_analysis.py --pollutant PM10
+```
+
+#### EEA Data
+```bash
+# Download from API
+python scripts/bulk_download_eea.py \
     --output_csv eea_measurements.csv \
     --metadata ./metadata.csv \
     --api_countries IT FR DE \
-    --api_pollutants PM10 NO2 \
-    --api_dateTimeStart 2024-01-01 \
-    --api_dateTimeEnd 2024-01-31 \
-    --api_aggregationType hour
-```
+    --api_pollutants PM10 NO2
 
-**Example: Use a local zip file**
-```bash
-python bulk_download_eea.py \
-    --zip_path ./data/measurements.zip \
-    --output_folder ./output \
-    --output_csv eea_measurements.csv \
-    --metadata ./metadata.csv
+# Download from CSV URLs
+python scripts/download_from_csv.py --csv ParquetFilesUrls.csv
 ```
-
-#### EEA Command-line Arguments
-| Argument                | Required | Description                                                                                          |
-| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `--zip_path`            | No       | Path to an already-downloaded `.zip` file (if not provided, the script will fetch data via the API). |
-| `--output_folder`       | ✅ Yes    | Folder where results will be stored (a timestamped subfolder is created).                            |
-| `--output_csv`          | ✅ Yes    | Name of the final CSV file (inside the output folder).                                               |
-| `--metadata`            | ✅ Yes    | Path to metadata CSV (download from the EEA AQ portal).                                              |
-| `--api_countries`       | No       | List of ISO2 country codes (e.g., `IT FR DE`).                                                       |
-| `--api_cities`          | No       | List of cities to filter by (e.g., `Rome Paris Berlin`).                                             |
-| `--api_pollutants`      | No       | List of pollutants (e.g., `PM10 NO2 PM2.5`).                                                         |
-| `--api_dateTimeStart`   | No       | Start date (`YYYY-MM-DD`).                                                                           |
-| `--api_dateTimeEnd`     | No       | End date (`YYYY-MM-DD`).                                                                             |
-| `--api_aggregationType` | No       | Aggregation type (e.g., `hour`, `day`).                                                              |
 
 ## Output Structure
 
-### APPA Data Output
-**Default output folders:**
-- `plots/plots_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/` (all pollutants)
-- `plots/plots_YYYY-MM-DD_to_YYYY-MM-DD_PM10/` (specific pollutant)
-- `plots/correlations_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/` (all pollutants)
-- `plots/correlations_YYYY-MM-DD_to_YYYY-MM-DD_PM10/` (specific pollutant)
+All data is organized in the `data/` directory:
 
-### EEA Data Output
-The EEA script generates:
+```
+data/
+├── appa-data/                    # APPA Trento downloads
+│   └── appa-aria_YYYY-MM-DD_to_YYYY-MM-DD_csv/
+│       ├── csv_*.data.csv
+│       ├── merged_data.csv
+│       └── state.json
+├── eea-data/                     # EEA downloads
+│   └── YYYYMMDD_HHMMSS/
+│       ├── eea_measurements.csv
+│       └── metadata.zip
+└── eea-downloads/                # EEA CSV URL downloads
+    └── *.parquet files
+```
 
-1. **Raw combined CSV**: From all Parquet files
-2. **Merged CSV**: With station metadata
-3. **Filtered CSV**: Containing only the most useful fields:
-   - station-id
-   - Start, End
-   - Value, Unit
-   - AggType
-   - Country
-   - Air Pollutant
-   - Longitude, Latitude, Altitude
-   - Altitude Unit
-   - Air Quality Station Area
-   - Air Quality Station Type
-   - Municipality
-   - Duration Unit
-   - Cadence Unit
+### Plots Output
+```
+plots/
+├── plots_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/
+│   ├── time_series_all.png
+│   ├── station_comparison_PM10.png
+│   └── pollutant_distributions.png
+└── correlations_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/
+    ├── correlation_series_PM10.png
+    ├── correlation_heatmap.png
+    └── monthly_correlations.csv
+```
 
 ## Data Sources
 

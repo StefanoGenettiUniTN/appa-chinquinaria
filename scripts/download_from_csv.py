@@ -12,6 +12,7 @@ import time
 from tqdm import tqdm
 from urllib.parse import urlparse, parse_qs
 import hashlib
+from pathlib import Path
 
 def clean_filename(url):
     """
@@ -171,7 +172,7 @@ Examples:
     )
     
     parser.add_argument('--csv', required=True, help='Path to CSV file containing URLs')
-    parser.add_argument('--output', required=True, help='Directory to save downloaded files')
+    parser.add_argument('--output', required=False, help='Directory to save downloaded files (default: data/eea-downloads)')
     parser.add_argument('--timeout', type=int, default=60, help='Request timeout in seconds (default: 60)')
     parser.add_argument('--retries', type=int, default=3, help='Maximum retry attempts (default: 3)')
     parser.add_argument('--skip-existing', action='store_true', help='Skip files that already exist')
@@ -182,6 +183,12 @@ Examples:
     if not os.path.exists(args.csv):
         print(f"❌ Error: CSV file '{args.csv}' not found")
         return 1
+    
+    # Set default output directory if not provided
+    if args.output is None:
+        # Always save in data/eea-downloads folder in project root
+        project_root = Path(__file__).parent.parent.parent
+        args.output = project_root / "data" / "eea-downloads"
     
     # Create output directory
     os.makedirs(args.output, exist_ok=True)

@@ -5,6 +5,7 @@ import pandas as pd
 import argparse
 import datetime
 import requests
+from pathlib import Path
 
 def extract_parquet_from_zip(zip_path: str, extract_to: str) -> List[str]:
     """
@@ -81,7 +82,11 @@ if __name__ == '__main__':
     args = read_arguments()
     zip_path = args['zip_path']
     current_datetime = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_folder = f"{args['output_folder']}/{current_datetime}"
+    
+    # Always save in data/eea-data folder in project root
+    project_root = Path(__file__).parent.parent.parent
+    eea_data_dir = project_root / "data" / "eea-data"
+    output_folder = f"{eea_data_dir}/{current_datetime}"
     os.makedirs(output_folder, exist_ok=True)
     output_csv = f"{output_folder}/{args['output_csv']}"
     apiUrl = "https://eeadmz1-downloads-api-appservice.azurewebsites.net/"

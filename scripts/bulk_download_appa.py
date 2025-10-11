@@ -118,15 +118,15 @@ def sanitize_filename(s: str) -> str:
 
 
 def build_output_folder(base_out: Optional[str], start: dt.date, end: dt.date, fmt: str, stations: str) -> Path:
-    # Always save in appa-data folder in project root
+    # Always save in data/appa-data folder in project root
     project_root = Path(__file__).parent.parent.parent
-    appa_data_dir = project_root / "appa-data"
+    appa_data_dir = project_root / "data" / "appa-data"
     
     if base_out:
-        # If custom output specified, use it but still under appa-data
+        # If custom output specified, use it but still under data/appa-data
         out = appa_data_dir / base_out
     else:
-        # Default naming under appa-data
+        # Default naming under data/appa-data
         default_name = f"appa-aria_{start.isoformat()}_{end.isoformat()}_{fmt.lower()}"
         out = appa_data_dir / default_name
     
