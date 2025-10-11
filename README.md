@@ -1,47 +1,112 @@
-# bulk_download_eea.py
+# APPA Chinquinaria
 
-`bulk_download_eea.py` is a Python utility for bulk downloading, extracting, and processing air quality data from the [European Environment Agency (EEA)](https://discomap.eea.europa.eu/App/AQViewer/index.html?fqn=Airquality_Dissem.b2g.measurements#).
-
-It automates:
-
-- Downloading measurement datasets (Parquet format) from the EEA API or using a local `.zip` file.
-
-- Extracting `.parquet` files and converting them into a single CSV.
-
-- Merging the dataset with metadata (station details, location, altitude, station type, etc.).
-
-- Filtering to keep only relevant columns for easier analysis.
+A comprehensive air quality data collection and analysis toolkit for the Public AI Challenge. This project provides tools for downloading, processing, and analyzing air quality data from multiple sources including APPA Trento and the European Environment Agency (EEA).
 
 ## Features
 
-- 📥 Download Parquet datasets from the EEA API (optionally filter by country, city, pollutant, date, aggregation).
+### Data Sources
+- **APPA Trento**: Regional air quality data from Trentino, Italy
+- **European Environment Agency (EEA)**: European-wide air quality measurements
 
-- 📂 Extract .parquet files from .zip archives.
+### Core Functionality
+- 📥 **Bulk Data Download**: Automated downloading from multiple air quality data sources
+- 📊 **Data Visualization**: Time series plots, station comparisons, and distribution analysis
+- 🔍 **Correlation Analysis**: Monthly correlation analysis between stations and pollutants
+- 🧩 **Data Processing**: Merging, filtering, and cleaning of air quality datasets
+- 📂 **Multiple Formats**: Support for CSV, Parquet, and JSON data formats
 
-- 🔄 Convert multiple Parquet files into a single CSV.
+## Setup
 
-- 🧩 Merge measurement data with metadata (Sampling Point Id, station location, etc.).
+### Prerequisites
+- Python 3.7 or higher
+- Git
 
-- ✂️ Output a filtered CSV with clean and relevant columns.
+### Installation
 
-## Requirements
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd appa-chinquinaria
+   ```
 
-- Dependencies:
+2. **Create and activate virtual environment:**
 
-```
-pip install pandas requests pyarrow
-```
+   **Windows:**
+   ```cmd
+   python -m venv venv
+   venv\Scripts\activate
+   ```
 
-(or install all required dependencies via `requirements.txt`)
+   **Linux/macOS:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
-### 1. Download metadata file
 
-Download station metadata from the [EEA Air Quality Dissemination Portal](https://discomap.eea.europa.eu/App/AQViewer/index.html?fqn=Airquality_Dissem.b2g.measurements#) and save it as a `.csv`.
+### APPA Trento Data
 
-### 2. Run the script
-**Example: Fetch data from API**
+#### Download Data
+```bash
+python scripts/bulk_download_appa.py --start 2025-01-01 --end 2026-01-01
 ```
+
+For more options:
+```bash
+python scripts/bulk_download_appa.py --help
+```
+
+#### Visualize APPA Data
+Create time series plots and station comparisons:
+
+```bash
+# Visualize all pollutants (auto-generated output folder)
+python scripts/visualize_data.py
+
+# Visualize specific pollutant
+python scripts/visualize_data.py --pollutant PM10
+
+# Custom data folder
+python scripts/visualize_data.py --data-folder appa-data --pollutant NO2
+```
+
+**What it plots:**
+- **Time Series**: Daily average concentrations over time for each station and pollutant
+- **Station Comparison**: Min-max ranges and daily means for each station
+- **Distribution**: Histograms showing concentration frequency distributions
+
+#### APPA Correlation Analysis
+Analyze monthly correlations between stations:
+
+```bash
+# Analyze all pollutants (auto-generated output folder)
+python scripts/correlation_analysis.py
+
+# Analyze specific pollutant
+python scripts/correlation_analysis.py --pollutant PM10
+
+# Custom output directory
+python scripts/correlation_analysis.py --output-dir my_correlations
+```
+
+**What it plots:**
+- **Monthly Correlation Series**: Average correlation between stations over 30-day intervals
+- **Correlation Heatmap**: Correlation strength across pollutants and time periods
+- **Correlation Distribution**: Histograms of correlation values for each pollutant
+- **Station Pairwise Correlations**: Individual correlation time series for each station pair
+
+### EEA Data
+
+#### Download EEA Data
+
+**Example: Fetch data from API**
+```bash
 python bulk_download_eea.py \
     --output_folder ./output \
     --output_csv eea_measurements.csv \
@@ -54,7 +119,7 @@ python bulk_download_eea.py \
 ```
 
 **Example: Use a local zip file**
-```
+```bash
 python bulk_download_eea.py \
     --zip_path ./data/measurements.zip \
     --output_folder ./output \
@@ -62,7 +127,7 @@ python bulk_download_eea.py \
     --metadata ./metadata.csv
 ```
 
-### Command-line Arguments
+#### EEA Command-line Arguments
 | Argument                | Required | Description                                                                                          |
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
 | `--zip_path`            | No       | Path to an already-downloaded `.zip` file (if not provided, the script will fetch data via the API). |
@@ -76,41 +141,76 @@ python bulk_download_eea.py \
 | `--api_dateTimeEnd`     | No       | End date (`YYYY-MM-DD`).                                                                             |
 | `--api_aggregationType` | No       | Aggregation type (e.g., `hour`, `day`).                                                              |
 
-### Output
+## Output Structure
 
-The script generates:
+### APPA Data Output
+**Default output folders:**
+- `plots/plots_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/` (all pollutants)
+- `plots/plots_YYYY-MM-DD_to_YYYY-MM-DD_PM10/` (specific pollutant)
+- `plots/correlations_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/` (all pollutants)
+- `plots/correlations_YYYY-MM-DD_to_YYYY-MM-DD_PM10/` (specific pollutant)
 
-1. A raw combined CSV (from all Parquet files).
+### EEA Data Output
+The EEA script generates:
 
-2. A merged CSV (with station metadata).
+1. **Raw combined CSV**: From all Parquet files
+2. **Merged CSV**: With station metadata
+3. **Filtered CSV**: Containing only the most useful fields:
+   - station-id
+   - Start, End
+   - Value, Unit
+   - AggType
+   - Country
+   - Air Pollutant
+   - Longitude, Latitude, Altitude
+   - Altitude Unit
+   - Air Quality Station Area
+   - Air Quality Station Type
+   - Municipality
+   - Duration Unit
+   - Cadence Unit
 
-3. A filtered CSV containing only the most useful fields:
+## Data Sources
 
-- station-id
+### APPA Trento
+- **Source**: Regional air quality monitoring network in Trentino, Italy
+- **Data Types**: PM10, PM2.5, NO2, O3, SO2, CO
+- **Format**: CSV files with time series data
 
-- Start, End
+### European Environment Agency (EEA)
+- **Source**: [EEA Air Quality Dissemination Portal](https://discomap.eea.europa.eu/App/AQViewer/index.html?fqn=Airquality_Dissem.b2g.measurements#)
+- **Data Types**: Multiple pollutants across European countries
+- **Format**: Parquet files with comprehensive metadata
 
-- Value, Unit
+## Requirements
 
-- AggType
+### Dependencies
+```
+pandas
+requests
+pyarrow
+matplotlib
+seaborn
+numpy
+tqdm
+```
 
-- Country
-
-- Air Pollutant
-
-- Longitude, Latitude, Altitude
-
-- Altitude Unit
-
-- Air Quality Station Area
-
-- Air Quality Station Type
-
-- Municipality
-
-- Duration Unit
-
-- Cadence Unit
+Install all dependencies via:
+```bash
+pip install -r requirements.txt
+```
 
 ## Notes
-The script currently supports pollutants mapped in pollutant_dict. Extend the dictionary for more pollutants.
+
+- The EEA script currently supports pollutants mapped in `pollutant_dict`. Extend the dictionary for more pollutants.
+- All scripts create timestamped output folders to avoid overwriting previous results.
+- The visualization scripts automatically detect available data and generate appropriate plots.
+- Correlation analysis uses 30-day rolling windows for monthly correlation calculations.
+
+## Contributing
+
+This project is part of the Public AI Challenge. For contributions or issues, please refer to the project repository.
+
+## License
+
+[Add appropriate license information]
