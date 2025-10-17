@@ -45,7 +45,7 @@ DAYS_01_31 = [f"{d:02d}" for d in range(1, 32)]
 TIMES = [f"{h:02d}:00" for h in range(24)]
 STATE_FILENAME = "state.json"
 DEFAULT_OUT_BASENAME = "era5_blh"
-PROJECT_DATA_SUBDIR = Path("data") / "era5-data"
+PROJECT_DATA_SUBDIR = Path("data_blh")
 
 
 def parse_area(area_str: str) -> List[float]:
