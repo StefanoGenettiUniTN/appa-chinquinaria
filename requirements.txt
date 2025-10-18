@@ -7,3 +7,7 @@ numpy>=1.21.0
 pyarrow
 beautifulsoup4>=4.9.0
 lxml>=4.6.0
+
+cdsapi
+xarray
+netCDF4
