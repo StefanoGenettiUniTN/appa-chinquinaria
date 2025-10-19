@@ -62,3 +62,7 @@ if __name__ == "__main__":
     
     station_code = sys.argv[1]
     list_variables(station_code)
+
+
+
+

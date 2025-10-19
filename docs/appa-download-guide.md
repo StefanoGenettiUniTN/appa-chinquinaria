@@ -206,3 +206,7 @@ For issues or questions:
 2. Verify your internet connection and date parameters
 3. Check the APPA website for service status
 4. Review the script's error messages for specific guidance
+
+
+
+
