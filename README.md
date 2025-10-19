@@ -1,183 +1,285 @@
-# APPA Chinquinaria
+# APPA Chinquinaria - Air Quality Data Analysis
 
-A comprehensive air quality data collection and analysis toolkit for the Public AI Challenge. This project provides tools for downloading, processing, and analyzing air quality data from multiple sources including APPA Trento and the European Environment Agency (EEA).
+A comprehensive data collection and analysis framework for air quality monitoring in Trentino, Italy. This project integrates multiple data sources including APPA Trento air quality measurements, Meteo Trentino meteorological data, European Environment Agency (EEA) data, and ERA5 reanalysis data for boundary layer height.
 
-## Features
+## 🎯 Project Overview
 
-### Data Sources
-- **APPA Trento**: Regional air quality data from Trentino, Italy
-- **European Environment Agency (EEA)**: European-wide air quality measurements
+This repository provides tools to:
+- Download and process air quality data from multiple sources
+- Analyze correlations between meteorological conditions and pollutant concentrations
+- Visualize temporal and spatial patterns in air quality
+- Study the relationship between boundary layer height and pollutant dispersion
 
-### Core Functionality
-- 📥 **Bulk Data Download**: Automated downloading from multiple air quality data sources
-- 📊 **Data Visualization**: Time series plots, station comparisons, and distribution analysis
-- 🔍 **Correlation Analysis**: Monthly correlation analysis between stations and pollutants
-- 🧩 **Data Processing**: Merging, filtering, and cleaning of air quality datasets
-- 📂 **Multiple Formats**: Support for CSV, Parquet, and JSON data formats
+## 📊 Data Sources
 
-## Setup
+| Source | Type | Description |
+|--------|------|-------------|
+| **APPA Trento** | Air Quality | PM10, NO₂, and other pollutant measurements from monitoring stations across Trentino |
+| **Meteo Trentino** | Meteorological | Temperature, precipitation, wind, pressure, radiation, and humidity data |
+| **EEA** | Air Quality | European air quality data from multiple countries and stations |
+| **ERA5** | Reanalysis | Boundary Layer Height (BLH) data from Copernicus Climate Data Store |
+
+## 📁 Project Structure
+
+```
+appa-chinquinaria/
+├── data/                          # Data storage directory
+│   ├── data-samples/              # Sample datasets for testing and examples
+│   │   └── sample_blh_hourly_stations.csv
+│   ├── meteo-trentino/            # Meteo Trentino meteorological data
+│   ├── eea-data/                  # European Environment Agency data
+│   ├── eu-dtm/                    # Digital Terrain Model data
+│   └── data_blh/                  # ERA5 Boundary Layer Height data (created by scripts)
+│
+├── docs/                          # Documentation
+│   ├── appa-download-guide.md     # APPA Trento data download instructions
+│   ├── meteo-trentino-download-guide.md
+│   ├── eea-download-guide.md
+│   ├── blh-download-guide.md      # ERA5 BLH download instructions
+│   └── data-analysis-guide.md
+│
+├── scripts/                       # Data processing scripts
+│   ├── bulk_download_appa.py      # APPA Trento bulk downloader
+│   ├── bulk_download_meteo_trentino.py
+│   ├── bulk_download_eea.py
+│   ├── download_blh.py            # ERA5 BLH downloader (requires CDS credentials)
+│   ├── build_blh_dataset.py       # Process ERA5 ZIP files into structured datasets
+│   ├── download_from_csv.py
+│   ├── list_station_variables.py
+│   ├── test_meteo_connection.py
+│   ├── correlation_analysis.py    # Correlation analysis tools
+│   └── visualize_data.py
+│
+├── notebooks/                     # Jupyter notebooks for analysis and visualization
+│   └── visualization_blh_data.ipynb
+│
+├── requirements.txt               # Python dependencies
+└── README.md                      # This file
+```
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.7 or higher
-- Git
+
+- Python 3.8 or higher
+- For ERA5 data downloads: [CDS API credentials](https://cds.climate.copernicus.eu/api-how-to)
 
 ### Installation
 
-1. **Clone the repository:**
+1. **Clone the repository**
    ```bash
-   git clone <repository-url>
    cd appa-chinquinaria
    ```
 
-2. **Create and activate virtual environment:**
-
-   **Windows:**
-   ```cmd
-   python -m venv venv
-   venv\Scripts\activate
-   ```
-
-   **Linux/macOS:**
+2. **Create and activate virtual environment** (recommended)
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies:**
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-## Usage
+4. **Configure CDS API** (for ERA5 data only)
+   
+   Create `~/.cdsapirc` with your Copernicus credentials:
+   ```
+   url: https://cds.climate.copernicus.eu/api
+   key: YOUR_API_KEY
+   ```
 
-### Quick Start
+## 📖 Usage
+
+### Downloading APPA Trento Air Quality Data
+
+Download air quality measurements from APPA Trento monitoring stations:
 
 ```bash
-# Download APPA Trento data
-python scripts/bulk_download_appa.py --start 2025-01-01 --end 2026-01-01
+# Basic download for a date range
+python scripts/bulk_download_appa.py --start 2024-01-01 --end 2024-12-31
 
-# Download EEA data
+# Download specific stations with custom output directory
+python scripts/bulk_download_appa.py \
+    --start 2024-01-01 \
+    --end 2024-12-31 \
+    --stations "2,4,6,8" \
+    --output data/appa-2024
+```
+
+See [`docs/appa-download-guide.md`](docs/appa-download-guide.md) for detailed usage.
+
+### Downloading Meteo Trentino Data
+
+Download meteorological data (temperature, wind, precipitation, etc.):
+
+```bash
+# Download all available data for a station
+python scripts/bulk_download_meteo_trentino.py \
+    --station-code T0129 \
+    --start-date 2024-01-01 \
+    --end-date 2024-12-31
+```
+
+See [`docs/meteo-trentino-download-guide.md`](docs/meteo-trentino-download-guide.md) for details.
+
+### Downloading EEA Data
+
+Download European air quality data:
+
+```bash
 python scripts/bulk_download_eea.py \
-    --output_csv eea_measurements.csv \
-    --metadata ./metadata.csv \
-    --api_countries IT \
-    --api_pollutants PM10
-
-# Visualize data
-python scripts/visualize_data.py --pollutant PM10
-
-# Analyze correlations
-python scripts/correlation_analysis.py --pollutant PM10
+    --year 2024 \
+    --pollutant PM10 \
+    --country IT
 ```
 
-### Detailed Documentation
+See [`docs/eea-download-guide.md`](docs/eea-download-guide.md) for more information.
 
-For comprehensive usage instructions, see the dedicated documentation files:
+### Downloading ERA5 Boundary Layer Height Data
 
-- **[APPA Download Guide](docs/appa-download-guide.md)**: Complete guide for downloading APPA Trento data
-- **[EEA Download Guide](docs/eea-download-guide.md)**: Complete guide for downloading EEA data
-- **[Data Analysis Guide](docs/data-analysis-guide.md)**: Guide for visualization and correlation analysis
+Download and process ERA5 boundary layer height reanalysis data:
 
-### Basic Commands
+**Step 1: Download ERA5 data** (requires CDS credentials)
 
-#### APPA Trento Data
 ```bash
-# Download data
-python scripts/bulk_download_appa.py --start 2025-01-01 --end 2026-01-01
-
-# Visualize data
-python scripts/visualize_data.py --pollutant PM10
-
-# Correlation analysis
-python scripts/correlation_analysis.py --pollutant PM10
+# Download BLH data for 2020-2025
+python scripts/download_blh.py \
+    --start-year 2020 \
+    --end-year 2025 \
+    --chunk-years 2 \
+    --area "47.67,4.61,43.54,16.12"
 ```
 
-#### EEA Data
+**Step 2: Build structured dataset**
+
 ```bash
-# Download from API
-python scripts/bulk_download_eea.py \
-    --output_csv eea_measurements.csv \
-    --metadata ./metadata.csv \
-    --api_countries IT FR DE \
-    --api_pollutants PM10 NO2
-
-# Download from CSV URLs
-python scripts/download_from_csv.py --csv ParquetFilesUrls.csv
+# Process ZIP files and create hourly/daily datasets
+python scripts/build_blh_dataset.py \
+    --in-dir data_blh \
+    --out-dir data_blh/processed \
+    --csv
 ```
 
-## Output Structure
+This creates:
+- `blh_hourly_all_stations.parquet` - Hourly BLH values
+- `blh_daily_all_stations.parquet` - Daily averaged BLH values
+- Optional CSV files if `--csv` flag is used
 
-All data is organized in the `data/` directory:
+See [`docs/blh-download-guide.md`](docs/blh-download-guide.md) for detailed information.
 
-```
-data/
-├── appa-data/                    # APPA Trento downloads
-│   └── appa-aria_YYYY-MM-DD_to_YYYY-MM-DD_csv/
-│       ├── csv_*.data.csv
-│       ├── merged_data.csv
-│       └── state.json
-├── eea-data/                     # EEA downloads
-│   └── YYYYMMDD_HHMMSS/
-│       ├── eea_measurements.csv
-│       └── metadata.zip
-└── eea-downloads/                # EEA CSV URL downloads
-    └── *.parquet files
-```
+### Data Visualization and Analysis
 
-### Plots Output
-```
-plots/
-├── plots_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/
-│   ├── time_series_all.png
-│   ├── station_comparison_PM10.png
-│   └── pollutant_distributions.png
-└── correlations_YYYY-MM-DD_to_YYYY-MM-DD_POLLUTANT1_POLLUTANT2/
-    ├── correlation_series_PM10.png
-    ├── correlation_heatmap.png
-    └── monthly_correlations.csv
-```
+Explore the notebooks for interactive analysis:
 
-## Data Sources
-
-### APPA Trento
-- **Source**: Regional air quality monitoring network in Trentino, Italy
-- **Data Types**: PM10, PM2.5, NO2, O3, SO2, CO
-- **Format**: CSV files with time series data
-
-### European Environment Agency (EEA)
-- **Source**: [EEA Air Quality Dissemination Portal](https://discomap.eea.europa.eu/App/AQViewer/index.html?fqn=Airquality_Dissem.b2g.measurements#)
-- **Data Types**: Multiple pollutants across European countries
-- **Format**: Parquet files with comprehensive metadata
-
-## Requirements
-
-### Dependencies
-```
-pandas
-requests
-pyarrow
-matplotlib
-seaborn
-numpy
-tqdm
-```
-
-Install all dependencies via:
 ```bash
-pip install -r requirements.txt
+# Start Jupyter
+jupyter notebook notebooks/visualization_blh_data.ipynb
 ```
 
-## Notes
+The visualization notebook includes:
+- Geographic visualization of monitoring stations and ERA5 grid cells
+- Time series analysis of boundary layer height
+- Station-to-grid mapping and distance calculations
 
-- The EEA script currently supports pollutants mapped in `pollutant_dict`. Extend the dictionary for more pollutants.
-- All scripts create timestamped output folders to avoid overwriting previous results.
-- The visualization scripts automatically detect available data and generate appropriate plots.
-- Correlation analysis uses 30-day rolling windows for monthly correlation calculations.
+### Correlation Analysis
 
-## Contributing
+Analyze relationships between meteorological variables and pollutants:
 
-This project is part of the Public AI Challenge. For contributions or issues, please refer to the project repository.
+```bash
+python scripts/correlation_analysis.py \
+    --aq-data data/appa-data.csv \
+    --meteo-data data/meteo-trentino/processed.csv \
+    --output results/
+```
 
-## License
+## 🔍 Key Features
 
-[Add appropriate license information]
+### Boundary Layer Height Analysis
+
+The **Mixing Layer Height (MLH)** or **Planetary Boundary Layer Height (PBLH)** is crucial for understanding pollutant dispersion:
+
+- **Low values (100–300 m)**: Stable atmosphere, pollutant accumulation
+- **High values (1000–2000 m)**: Strong mixing, efficient dispersion
+
+This metric helps:
+- Identify thermal inversion episodes
+- Predict air stagnation events
+- Correlate meteorological conditions with PM10/NO₂ concentrations
+
+### Resume-able Downloads
+
+All download scripts support:
+- State tracking with JSON files
+- Automatic resume of interrupted downloads
+- Chunk-based downloading to handle API limits
+
+### Multiple Data Formats
+
+- CSV, JSON, XML support for APPA data
+- NetCDF for ERA5 data
+- Parquet for efficient data storage and processing
+
+## 📚 Documentation
+
+Detailed guides are available in the `docs/` directory:
+
+- **[APPA Download Guide](docs/appa-download-guide.md)** - APPA Trento air quality data
+- **[Meteo Trentino Guide](docs/meteo-trentino-download-guide.md)** - Meteorological data
+- **[EEA Download Guide](docs/eea-download-guide.md)** - European air quality data
+- **[BLH Download Guide](docs/blh-download-guide.md)** - ERA5 boundary layer height
+- **[Data Analysis Guide](docs/data-analysis-guide.md)** - Analysis methodologies
+
+## 🛠️ Troubleshooting
+
+### CDS API Issues
+
+If ERA5 downloads fail:
+1. Verify your `~/.cdsapirc` credentials
+2. Check your CDS API quota at https://cds.climate.copernicus.eu
+3. Ensure you've accepted the ERA5 license terms
+
+### Memory Issues
+
+For large datasets:
+- Use Parquet format instead of CSV
+- Process data in chunks
+- Increase chunk size in download scripts
+
+### Missing Dependencies
+
+If you encounter import errors:
+```bash
+pip install --upgrade -r requirements.txt
+```
+
+## 📊 Sample Data
+
+Sample datasets are provided in `data/data-samples/` for testing and exploring the notebooks without downloading full datasets.
+
+## 🤝 Contributing
+
+When adding new features:
+1. Place scripts in `scripts/`
+2. Add documentation to `docs/`
+3. Update this README
+4. Keep data files in `data/` (ensure `.gitignore` excludes large files)
+
+## 📝 Notes
+
+- Large data files (*.nc, *.zip, *.parquet) are excluded from version control
+- Always verify downloaded data integrity before analysis
+- ERA5 downloads may take significant time due to CDS queue times
+
+## 📄 License
+
+This project is part of the University of Trento public AI challenge.
+
+## 🙏 Acknowledgments
+
+- **APPA Trento** for air quality monitoring data
+- **Meteo Trentino** for meteorological observations
+- **European Environment Agency** for European air quality data
+- **Copernicus Climate Data Store** for ERA5 reanalysis data
+
