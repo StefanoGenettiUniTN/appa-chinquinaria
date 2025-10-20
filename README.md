@@ -15,7 +15,8 @@ This repository provides tools to:
 | Source | Type | Description |
 |--------|------|-------------|
 | **APPA Trento** | Air Quality | PM10, NO₂, and other pollutant measurements from monitoring stations across Trentino |
-| **Meteo Trentino** | Meteorological | Temperature, precipitation, wind, pressure, radiation, and humidity data |
+| **Meteo Trentino** | Meteorological | Temperature, precipitation, wind, pressure, radiation, and humidity data from Trentino |
+| **ARPAV** | Meteorological | Weather data from monitoring stations across Veneto region |
 | **EEA** | Air Quality | European air quality data from multiple countries and stations |
 | **ERA5** | Reanalysis | Boundary Layer Height (BLH) data from Copernicus Climate Data Store |
 
@@ -41,12 +42,14 @@ appa-chinquinaria/
 ├── scripts/                       # Data processing scripts
 │   ├── bulk_download_appa.py      # APPA Trento bulk downloader
 │   ├── bulk_download_meteo_trentino.py
+│   ├── bulk_download_arpav.py     # ARPAV (Veneto) bulk downloader
 │   ├── bulk_download_eea.py
 │   ├── download_blh.py            # ERA5 BLH downloader (requires CDS credentials)
 │   ├── build_blh_dataset.py       # Process ERA5 ZIP files into structured datasets
 │   ├── download_from_csv.py
 │   ├── list_station_variables.py
 │   ├── test_meteo_connection.py
+│   ├── test_arpav_functions.py    # Test ARPAV downloader functions
 │   ├── correlation_analysis.py    # Correlation analysis tools
 │   └── visualize_data.py
 │
@@ -123,6 +126,27 @@ python scripts/bulk_download_meteo_trentino.py \
 ```
 
 See [`docs/meteo-trentino-download-guide.md`](docs/meteo-trentino-download-guide.md) for details.
+
+### Downloading ARPAV (Veneto) Data
+
+Download meteorological data from ARPAV stations in Veneto region:
+
+```bash
+# Download all sensors for 2023-2024
+python scripts/bulk_download_arpav.py \
+    --start-year 2023 \
+    --end-year 2024
+
+# Download specific sensors only
+python scripts/bulk_download_arpav.py \
+    --start-year 2023 \
+    --end-year 2023 \
+    --sensors "TEMPMIN,PREC,UMID"
+```
+
+Available sensors: TEMPMIN, PREC, UMID, RADSOL, VVENTOMEDIO, LIVIDRO, PORT, PRESSMARE
+
+See [`docs/arpav-download-guide.md`](docs/arpav-download-guide.md) for detailed information.
 
 ### Downloading EEA Data
 
@@ -226,7 +250,8 @@ All download scripts support:
 Detailed guides are available in the `docs/` directory:
 
 - **[APPA Download Guide](docs/appa-download-guide.md)** - APPA Trento air quality data
-- **[Meteo Trentino Guide](docs/meteo-trentino-download-guide.md)** - Meteorological data
+- **[Meteo Trentino Guide](docs/meteo-trentino-download-guide.md)** - Meteorological data (Trentino)
+- **[ARPAV Download Guide](docs/arpav-download-guide.md)** - Meteorological data (Veneto)
 - **[EEA Download Guide](docs/eea-download-guide.md)** - European air quality data
 - **[BLH Download Guide](docs/blh-download-guide.md)** - ERA5 boundary layer height
 - **[Data Analysis Guide](docs/data-analysis-guide.md)** - Analysis methodologies
@@ -279,7 +304,8 @@ This project is part of the University of Trento public AI challenge.
 ## 🙏 Acknowledgments
 
 - **APPA Trento** for air quality monitoring data
-- **Meteo Trentino** for meteorological observations
+- **Meteo Trentino** for meteorological observations from Trentino region
+- **ARPAV** for meteorological data from Veneto region
 - **European Environment Agency** for European air quality data
 - **Copernicus Climate Data Store** for ERA5 reanalysis data
 
