@@ -126,6 +126,58 @@ def rate_limit_sleep():
     time.sleep(random.uniform(RATE_LIMIT_MIN, RATE_LIMIT_MAX))
 
 
+def _iter_month_chunks(year: int, months_per_chunk: int):
+    """Yield (date_from, date_to) strings covering the year in month chunks."""
+    import calendar
+    month = 1
+    while month <= 12:
+        end_month = min(month + months_per_chunk - 1, 12)
+        start_day = 1
+        end_day = calendar.monthrange(year, end_month)[1]
+        date_from = f"{year}{month:02d}{start_day:02d}"
+        date_to = f"{year}{end_month:02d}{end_day:02d}"
+        yield date_from, date_to
+        month = end_month + 1
+
+
+def _request_timeseries_csv(
+    session: "requests.Session",
+    station_code: str,
+    sensor_code: str,
+    date_from: str,
+    date_to: str,
+):
+    """Make one CSV request; return DataFrame or None if empty/parse failure."""
+    params = {
+        "station_code": station_code,
+        "sensor_code": sensor_code,
+        "date_from": date_from,
+        "date_to": date_to,
+        "output_format": "CSV",
+    }
+    response = session.get(
+        TIMESERIES_ENDPOINT,
+        params=params,
+        timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT),
+    )
+    response.raise_for_status()
+
+    if not response.text or len(response.text.strip()) == 0:
+        return None
+
+    from io import StringIO
+    try:
+        df = pd.read_csv(StringIO(response.text))
+    except pd.errors.EmptyDataError:
+        return None
+    except Exception:
+        return None
+
+    if df.empty:
+        return None
+    return df
+
+
 def fetch_all_stations(session: requests.Session, out_dir: Path) -> pd.DataFrame:
     """
     Fetch all stations from the API and save to CSV.
@@ -244,46 +296,48 @@ def download_timeseries_data(
         return pd.read_csv(csv_path)
     
     # Build date range for the year
-    date_from = f"{year}0101"
-    date_to = f"{year}1231"
+    date_from_year = f"{year}0101"
+    date_to_year = f"{year}1231"
     
     backoff = RETRY_BACKOFF
     
     for attempt in range(1, retries + 1):
         try:
-            params = {
-                "station_code": station_code,
-                "sensor_code": sensor_code,
-                "date_from": date_from,
-                "date_to": date_to,
-                "output_format": "CSV"
-            }
+            # Try yearly request first
+            df = _request_timeseries_csv(session, station_code, sensor_code, date_from_year, date_to_year)
             
-            response = session.get(
-                TIMESERIES_ENDPOINT,
-                params=params,
-                timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
-            )
-            response.raise_for_status()
+            # If the yearly request times out or returns None frequently, fall back to chunking
+            if df is None:
+                # Increase read timeout for chunked requests
+                global HTTP_READ_TIMEOUT
+                prev_timeout = HTTP_READ_TIMEOUT
+                HTTP_READ_TIMEOUT = max(HTTP_READ_TIMEOUT, 180)
+                
+                # Try quarterly (3-month chunks), then monthly if still empty
+                combined = []
+                for months_per_chunk in (3, 1):
+                    combined.clear()
+                    for df_chunk_from, df_chunk_to in _iter_month_chunks(year, months_per_chunk):
+                        try:
+                            df_chunk = _request_timeseries_csv(
+                                session, station_code, sensor_code, df_chunk_from, df_chunk_to
+                            )
+                            if df_chunk is not None and not df_chunk.empty:
+                                combined.append(df_chunk)
+                        except requests.RequestException:
+                            # Ignore chunk failures; retries happen at outer loop
+                            pass
+                        rate_limit_sleep()
+                    if combined:
+                        break
+                
+                if combined:
+                    df = pd.concat(combined, ignore_index=True)
+                
+                # Restore timeout
+                HTTP_READ_TIMEOUT = prev_timeout
             
-            # Check if response has content
-            if not response.text or len(response.text.strip()) == 0:
-                # Empty response - no data available
-                return None
-            
-            # Parse CSV response
-            from io import StringIO
-            try:
-                df = pd.read_csv(StringIO(response.text))
-            except pd.errors.EmptyDataError:
-                # Empty CSV or no columns - no data available
-                return None
-            except Exception as e:
-                print(f"  Warning: Failed to parse CSV for {station_code}/{sensor_code}/{year}: {e}")
-                return None
-            
-            # Check if we got data
-            if df.empty:
+            if df is None or df.empty:
                 return None
             
             # Add metadata columns
