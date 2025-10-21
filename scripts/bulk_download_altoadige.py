@@ -29,6 +29,8 @@ import sys
 import time
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
+from threading import Lock, local
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import requests
@@ -106,6 +108,16 @@ def save_state(out_dir: Path, state: Dict):
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, sort_keys=True, ensure_ascii=False)
     tmp.replace(state_path)
+
+
+_thread_local = local()
+
+
+def _get_thread_session() -> requests.Session:
+    """Return a requests.Session bound to the current thread."""
+    if getattr(_thread_local, "session", None) is None:
+        _thread_local.session = create_session()
+    return _thread_local.session
 
 
 def create_session() -> requests.Session:
@@ -489,7 +501,8 @@ def run_download(
     start_year: int,
     end_year: int,
     sensor_filter: Optional[List[str]],
-    out_dir: Path
+    out_dir: Path,
+    workers: int = 1
 ):
     """Main download orchestration."""
     ensure_folder(out_dir)
@@ -530,38 +543,44 @@ def run_download(
     
     print(f"\nDownloading data for {total_tasks} station-sensor-year combinations...")
     
-    progress = tqdm(pending_tasks, desc="Downloading") if TQDM_AVAILABLE else None
-    
-    for task in pending_tasks:
+    progress = tqdm(total=total_tasks, desc="Downloading") if TQDM_AVAILABLE else None
+
+    # Thread-safe structures
+    state_lock = Lock()
+
+    def worker(task: Dict) -> None:
         station_code = task["station_code"]
         sensor_code = task["sensor_code"]
         year = task["year"]
-        
-        if progress:
-            progress.set_description(f"{station_code}/{sensor_code}/{year}")
-        else:
+
+        if not TQDM_AVAILABLE:
             print(f"  Downloading {station_code}/{sensor_code}/{year}...")
-        
-        # Download data
-        df = download_timeseries_data(session, station_code, sensor_code, year, out_dir)
-        
-        task["attempts"] = task.get("attempts", 0) + 1
-        task["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
-        
-        if df is not None and len(df) > 0:
-            task["status"] = "done"
-            task["records"] = len(df)
-        else:
-            # No data available for this combination (not necessarily an error)
-            task["status"] = "no_data"
-            task["records"] = 0
-        
-        # Save state after each task
-        save_state(out_dir, state)
-        
-        if progress:
-            progress.update(1)
-    
+
+        # Per-thread session
+        thread_session = _get_thread_session()
+        df = download_timeseries_data(thread_session, station_code, sensor_code, year, out_dir)
+
+        # Update task and state atomically
+        with state_lock:
+            task["attempts"] = task.get("attempts", 0) + 1
+            task["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
+            if df is not None and len(df) > 0:
+                task["status"] = "done"
+                task["records"] = len(df)
+            else:
+                task["status"] = "no_data"
+                task["records"] = 0
+            save_state(out_dir, state)
+            if progress:
+                progress.update(1)
+
+    # Execute in parallel
+    max_workers = max(1, int(workers))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(worker, t) for t in pending_tasks]
+        for _ in as_completed(futures):
+            pass
+
     if progress:
         progress.close()
     
@@ -642,6 +661,7 @@ Available sensor codes:
     parser.add_argument("--sensors", default=None,
                         help=f"Comma-separated sensor codes (default: all available sensors)")
     parser.add_argument("--out", default=None, help="Output folder name (default: altoadige_STARTYEAR_ENDYEAR)")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel download workers (default: 1)")
     
     args = parser.parse_args()
     
@@ -676,7 +696,7 @@ Available sensor codes:
     print(f"Sensors: {', '.join(sensor_filter) if sensor_filter else 'all available'}")
     print("=" * 60)
     
-    run_download(args.start, args.end, sensor_filter, out_dir)
+    run_download(args.start, args.end, sensor_filter, out_dir, workers=args.workers)
 
 
 if __name__ == "__main__":
