@@ -331,6 +331,57 @@ station_code,sensor_code,year,DATE,VALUE
 - **Code Tests**: Run `scripts/test_altoadige_downloader.py`
 - **Integration Test**: Run `scripts/test_altoadige_minimal_download.py`
 
+## Completed Download: 2000-2025 Dataset
+
+### Download Summary
+
+A complete historical download has been performed covering **2000-2025** (26 years) for all available stations and sensor types. The dataset has been uploaded to **Google Drive** for backup and sharing.
+
+### Dataset Statistics
+
+**Overall:**
+- **Total CSV files**: 8,451
+- **Non-empty files**: 5,482 (64.9%)
+- **Empty files**: 2,969 (35.1%)
+- **Time period**: 2000-2025 (26 years)
+- **All sensor types included**: 14 different sensor types
+
+**Breakdown by Sensor Type:**
+
+| Sensor Type | Description | Total CSVs | Empty Files | Empty % | Non-empty Files |
+|-------------|-------------|------------|-------------|---------|-----------------|
+| LF | Air humidity | 1,046 | 349 | 33.4% | 697 |
+| LT | Air temperature | 1,046 | 349 | 33.4% | 697 |
+| WG | Wind speed (avg) | 848 | 242 | 28.5% | 606 |
+| WG.BOE | Wind gust | 847 | 242 | 28.6% | 605 |
+| WR | Wind direction | 847 | 241 | 28.5% | 606 |
+| LD.RED | Air pressure | 631 | 247 | 39.1% | 384 |
+| N | Precipitation | 633 | 237 | 37.4% | 396 |
+| WT | Wind temperature | 548 | 371 | 67.7% | 177 |
+| SD | Sunshine duration | 552 | 194 | 35.1% | 358 |
+| GS | Global radiation | 473 | 189 | 40.0% | 284 |
+| W | Water level | 389 | 152 | 39.1% | 237 |
+| Q | Flow rate | 292 | 53 | 18.2% | 239 |
+| HS | Snow height | 256 | 95 | 37.1% | 161 |
+| SSTF | Soil surface temp | 42 | 8 | 19.0% | 34 |
+
+### Data Availability Notes
+
+- **Flow rate (Q)** has the best data availability with only 18.2% empty files
+- **Wind temperature (WT)** has the most gaps with 67.7% empty files
+- Empty files typically indicate periods when:
+  - Stations were not yet operational
+  - Sensors were not installed at that location
+  - Data collection was interrupted due to maintenance or technical issues
+- The dataset contains **5,482 non-empty CSV files** with actual measurement data
+
+### Storage Location
+
+- **Local path**: `data/altoadige/altoadige_2000_2025/`
+- **Google Drive**: Uploaded (compressed archive available)
+- **Compressed size**: ~80-100 MB (estimated)
+- **Uncompressed size**: ~200-300 MB (estimated)
+
 ## Verification
 
 All components have been tested and verified:
@@ -341,6 +392,8 @@ All components have been tested and verified:
 - ✅ **Directory structure**: Proper organization confirmed
 - ✅ **Error handling**: Retry and timeout logic tested
 - ✅ **Code quality**: Follows project conventions
+- ✅ **Complete historical download**: 26 years (2000-2025) completed
+- ✅ **Data backup**: Uploaded to Google Drive
 
 ## License and Attribution
 
