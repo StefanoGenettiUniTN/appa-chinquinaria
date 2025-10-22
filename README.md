@@ -17,6 +17,7 @@ This repository provides tools to:
 | **APPA Trento** | Air Quality | PM10, NO₂, and other pollutant measurements from monitoring stations across Trentino |
 | **Meteo Trentino** | Meteorological | Temperature, precipitation, wind, pressure, radiation, and humidity data from Trentino |
 | **ARPAV** | Meteorological | Weather data from monitoring stations across Veneto region |
+| **Alto Adige** | Meteorological | Weather and hydrological data from 174 monitoring stations in Alto Adige/Südtirol |
 | **EEA** | Air Quality | European air quality data from multiple countries and stations |
 | **ERA5** | Reanalysis | Boundary Layer Height (BLH) data from Copernicus Climate Data Store |
 
@@ -28,6 +29,8 @@ appa-chinquinaria/
 │   ├── data-samples/              # Sample datasets for testing and examples
 │   │   └── sample_blh_hourly_stations.csv
 │   ├── meteo-trentino/            # Meteo Trentino meteorological data
+│   ├── arpav/                     # ARPAV (Veneto) meteorological data
+│   ├── altoadige/                 # Alto Adige meteorological data
 │   ├── eea-data/                  # European Environment Agency data
 │   ├── eu-dtm/                    # Digital Terrain Model data
 │   └── data_blh/                  # ERA5 Boundary Layer Height data (created by scripts)
@@ -35,6 +38,7 @@ appa-chinquinaria/
 ├── docs/                          # Documentation
 │   ├── appa-download-guide.md     # APPA Trento data download instructions
 │   ├── meteo-trentino-download-guide.md
+│   ├── altoadige-download-guide.md # Alto Adige data download instructions
 │   ├── eea-download-guide.md
 │   ├── blh-download-guide.md      # ERA5 BLH download instructions
 │   └── data-analysis-guide.md
@@ -43,6 +47,7 @@ appa-chinquinaria/
 │   ├── bulk_download_appa.py      # APPA Trento bulk downloader
 │   ├── bulk_download_meteo_trentino.py
 │   ├── bulk_download_arpav.py     # ARPAV (Veneto) bulk downloader
+│   ├── bulk_download_altoadige.py # Alto Adige bulk downloader
 │   ├── bulk_download_eea.py
 │   ├── download_blh.py            # ERA5 BLH downloader (requires CDS credentials)
 │   ├── build_blh_dataset.py       # Process ERA5 ZIP files into structured datasets
@@ -50,6 +55,7 @@ appa-chinquinaria/
 │   ├── list_station_variables.py
 │   ├── test_meteo_connection.py
 │   ├── test_arpav_functions.py    # Test ARPAV downloader functions
+│   ├── test_altoadige_connection.py # Test Alto Adige API connection
 │   ├── correlation_analysis.py    # Correlation analysis tools
 │   └── visualize_data.py
 │
@@ -147,6 +153,27 @@ python scripts/bulk_download_arpav.py \
 Available sensors: TEMPMIN, PREC, UMID, RADSOL, VVENTOMEDIO, LIVIDRO, PORT, PRESSMARE
 
 See [`docs/arpav-download-guide.md`](docs/arpav-download-guide.md) for detailed information.
+
+### Downloading Alto Adige Data
+
+Download meteorological and hydrological data from Alto Adige monitoring stations:
+
+```bash
+# Download all sensors for 2023-2024
+python scripts/bulk_download_altoadige.py \
+    --start 2023 \
+    --end 2024
+
+# Download specific sensors only
+python scripts/bulk_download_altoadige.py \
+    --start 2023 \
+    --end 2024 \
+    --sensors "LT,N,Q"
+```
+
+Available sensors: LT (temperature), LF (humidity), N (precipitation), WG (wind speed), WR (wind direction), LD.RED (pressure), SD (sunshine), GS (radiation), HS (snow height), W (water level), Q (flow rate)
+
+See [`docs/altoadige-download-guide.md`](docs/altoadige-download-guide.md) for detailed information.
 
 ### Downloading EEA Data
 
@@ -252,6 +279,7 @@ Detailed guides are available in the `docs/` directory:
 - **[APPA Download Guide](docs/appa-download-guide.md)** - APPA Trento air quality data
 - **[Meteo Trentino Guide](docs/meteo-trentino-download-guide.md)** - Meteorological data (Trentino)
 - **[ARPAV Download Guide](docs/arpav-download-guide.md)** - Meteorological data (Veneto)
+- **[Alto Adige Download Guide](docs/altoadige-download-guide.md)** - Meteorological data (Alto Adige)
 - **[EEA Download Guide](docs/eea-download-guide.md)** - European air quality data
 - **[BLH Download Guide](docs/blh-download-guide.md)** - ERA5 boundary layer height
 - **[Data Analysis Guide](docs/data-analysis-guide.md)** - Analysis methodologies
@@ -306,6 +334,7 @@ This project is part of the University of Trento public AI challenge.
 - **APPA Trento** for air quality monitoring data
 - **Meteo Trentino** for meteorological observations from Trentino region
 - **ARPAV** for meteorological data from Veneto region
+- **Provincia Autonoma di Bolzano - Alto Adige** for meteorological and hydrological data
 - **European Environment Agency** for European air quality data
 - **Copernicus Climate Data Store** for ERA5 reanalysis data
 
