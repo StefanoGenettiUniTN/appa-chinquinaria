@@ -27,6 +27,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
+from urllib.parse import parse_qsl
 
 try:
     import requests
@@ -288,7 +289,22 @@ def collect_all_station_metadata(session: requests.Session, start_year: int, end
     return metadata
 
 
-def download_sensor_year_html(session: requests.Session, sensor_id: str, year: int, retries: int = MAX_RETRIES) -> Optional[str]:
+def download_sensor_year_html(
+    session: requests.Session,
+    sensor_id: str,
+    year: int,
+    retries: int = MAX_RETRIES,
+    extra_params: Optional[Dict[str, str]] = None,
+    debug: bool = False,
+    debug_dir: Optional[Path] = None,
+    can_save_html: bool = False,
+    # POST-after-GET settings
+    post_after_get: bool = True,
+    date_start: Optional[str] = None,
+    date_end: Optional[str] = None,
+    connect_timeout: Optional[int] = None,
+    read_timeout: Optional[int] = None,
+) -> Optional[str]:
     """
     Download HTML data for a specific sensor ID and year.
     
@@ -302,18 +318,73 @@ def download_sensor_year_html(session: requests.Session, sensor_id: str, year: i
         "cd": sensor_id,
         "an": year
     }
+    if extra_params:
+        # Do not override required keys if present in extra params
+        for k, v in extra_params.items():
+            if k not in ("cd", "an"):
+                params[k] = v
     
     backoff = RETRY_BACKOFF
+    ct = HTTP_CONNECT_TIMEOUT if connect_timeout is None else connect_timeout
+    rt = HTTP_READ_TIMEOUT if read_timeout is None else read_timeout
     
     for attempt in range(1, retries + 1):
         try:
             response = session.get(
                 DATA_ENDPOINT,
                 params=params,
-                timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT)
+                timeout=(ct, rt)
             )
             response.raise_for_status()
-            return response.text
+            if debug:
+                url_used = response.url
+                size = len(response.text)
+                print(f"    GET {url_used} => {size} chars")
+            if can_save_html and debug_dir is not None:
+                try:
+                    debug_dir.mkdir(parents=True, exist_ok=True)
+                    fname = debug_dir / f"sensor_{sensor_id}_{year}_get.html"
+                    with fname.open("w", encoding="utf-8") as f:
+                        f.write(response.text)
+                except Exception as e:
+                    print(f"    Warning: failed saving raw HTML for {sensor_id}/{year}: {e}")
+            # If needed, follow with POST to set date range and retrieve full period
+            if post_after_get:
+                post_data = {}
+                if date_start:
+                    post_data["dinizio"] = date_start
+                if date_end:
+                    post_data["dfine"] = date_end
+                try:
+                    response_post = session.post(
+                        DATA_ENDPOINT,
+                        params=params,
+                        data=post_data,
+                        timeout=(ct, rt)
+                    )
+                    response_post.raise_for_status()
+                    if debug:
+                        url_used = response_post.url
+                        size = len(response_post.text)
+                        print(f"    POST {url_used} body={post_data} => {size} chars")
+                    if can_save_html and debug_dir is not None:
+                        try:
+                            fname = debug_dir / f"sensor_{sensor_id}_{year}_post.html"
+                            with fname.open("w", encoding="utf-8") as f:
+                                f.write(response_post.text)
+                        except Exception as e:
+                            print(f"    Warning: failed saving POST HTML for {sensor_id}/{year}: {e}")
+                    return response_post.text
+                except requests.RequestException as e:
+                    if attempt >= retries:
+                        print(f"Error POSTing sensor {sensor_id}/{year} after GET: {e}")
+                        return None
+                    print(f"  Retry POST {attempt}/{retries} for sensor {sensor_id}/{year}: {e}")
+                    time.sleep(backoff)
+                    backoff *= 1.5
+                    continue
+            else:
+                return response.text
             
         except requests.RequestException as e:
             if attempt >= retries:
@@ -544,7 +615,24 @@ def build_output_folder(base_out: Optional[str], start_year: int, end_year: int)
     return out
 
 
-def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Path, verify_ssl: bool = False):
+def run_download(
+    start_year: int,
+    end_year: int,
+    sensors: List[str],
+    out_dir: Path,
+    verify_ssl: bool = False,
+    *,
+    extra_params: Optional[Dict[str, str]] = None,
+    debug: bool = False,
+    save_html: bool = False,
+    save_html_limit: int = 0,
+    limit_per_year: Optional[int] = None,
+    post_range: bool = True,
+    date_start_override: Optional[str] = None,
+    date_end_override: Optional[str] = None,
+    connect_timeout: Optional[int] = None,
+    read_timeout: Optional[int] = None,
+):
     """Main download orchestration."""
     ensure_folder(out_dir)
     
@@ -569,6 +657,11 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
     print("\n" + "=" * 60)
     print("PHASE 2: Downloading Station Data")
     print("=" * 60)
+    if debug:
+        print(f"Debug mode: on | save_html={save_html} limit={save_html_limit}")
+        if extra_params:
+            print(f"Extra query params: {extra_params}")
+        print(f"POST range enabled: {post_range}")
     
     pending_tasks = [t for t in state["tasks"] if t["status"] != "done"]
     total_tasks = len(pending_tasks)
@@ -591,6 +684,8 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
     for year in sorted(tasks_by_year.keys()):
         year_tasks = tasks_by_year[year]
         pending_year_tasks = [t for t in year_tasks if t["status"] != "done"]
+        if limit_per_year is not None:
+            pending_year_tasks = pending_year_tasks[:limit_per_year]
         
         if not pending_year_tasks:
             print(f"\nYear {year}: Already complete")
@@ -599,6 +694,13 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
         print(f"\nYear {year}: {len(pending_year_tasks)} stations to download")
         
         year_dataframes = []
+        saved_html_count = 0
+        debug_dir = (out_dir / "debug_html" / str(year)) if (debug or save_html) else None
+        # Build default date range for the year (dd/mm/yyyy)
+        default_start = f"01/01/{year:04d}"
+        default_end = f"31/12/{year:04d}"
+        year_date_start = date_start_override or default_start
+        year_date_end = date_end_override or default_end
         
         progress = tqdm(pending_year_tasks, desc=f"Year {year}") if TQDM_AVAILABLE else None
         
@@ -613,7 +715,21 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
                 print(f"  Downloading {station_name} (sensor {sensor_id})...")
             
             # Download HTML using sensor ID
-            html_content = download_sensor_year_html(session, sensor_id, year)
+            can_save_html = save_html and (saved_html_count < save_html_limit if save_html_limit else True)
+            html_content = download_sensor_year_html(
+                session,
+                sensor_id,
+                year,
+                extra_params=extra_params,
+                debug=debug,
+                debug_dir=debug_dir,
+                can_save_html=can_save_html,
+                post_after_get=post_range,
+                date_start=year_date_start,
+                date_end=year_date_end,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
+            )
             
             task["attempts"] = task.get("attempts", 0) + 1
             task["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
@@ -626,6 +742,17 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
                     # Add sensor ID to the dataframe for tracking
                     df.insert(2, 'sensor_id', sensor_id)
                     year_dataframes.append(df)
+                    if can_save_html:
+                        saved_html_count += 1
+                    if debug and 'timestamp' in df.columns:
+                        try:
+                            ts = df['timestamp']
+                            min_ts = ts.min()
+                            max_ts = ts.max()
+                            non_null = ts.notna().sum()
+                            print(f"    Coverage {station_name} ({sensor_id}) {year}: {non_null} rows, min={min_ts}, max={max_ts}")
+                        except Exception:
+                            pass
                     task["status"] = "done"
                 else:
                     task["status"] = "failed"
@@ -648,6 +775,15 @@ def run_download(start_year: int, end_year: int, sensors: List[str], out_dir: Pa
         # Merge year data into CSV
         if year_dataframes:
             merge_station_data_to_yearly_csv(out_dir, year, year_dataframes)
+            if debug:
+                try:
+                    import pandas as pd  # already imported above
+                    merged = pd.concat(year_dataframes, ignore_index=True)
+                    if 'timestamp' in merged.columns:
+                        ts = merged['timestamp']
+                        print(f"  Year {year} merged coverage: rows={len(merged)}, min={ts.min()}, max={ts.max()}")
+                except Exception:
+                    pass
     
     # Final summary
     print("\n" + "=" * 60)
@@ -687,6 +823,17 @@ Examples:
                         help=f"Comma-separated sensor types (default: all sensors)")
     parser.add_argument("--out", default=None, help="Output folder name (default: arpav_STARTYEAR_ENDYEAR)")
     parser.add_argument("--verify-ssl", action="store_true", help="Verify SSL certificates (default: disabled)")
+    parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging and coverage output")
+    parser.add_argument("--save-html", action="store_true", help="Save raw HTML responses to disk (implies --debug)")
+    parser.add_argument("--save-html-limit", type=int, default=50, help="Max number of raw HTML files to save per year (0 = no limit)")
+    parser.add_argument("--extra-params", default="", help="Extra query params for data endpoint, e.g. 'pg=1&foo=bar'")
+    parser.add_argument("--limit-per-year", type=int, default=None, help="Limit number of station sensors processed per year (for debugging)")
+    parser.add_argument("--no-post-range", dest="post_range", action="store_false", help="Disable POST-after-GET date range request")
+    parser.set_defaults(post_range=True)
+    parser.add_argument("--date-start", default=None, help="Override start date in dd/mm/yyyy (default 01/01/<year>)")
+    parser.add_argument("--date-end", default=None, help="Override end date in dd/mm/yyyy (default 31/12/<year>)")
+    parser.add_argument("--connect-timeout", type=int, default=None, help=f"HTTP connect timeout seconds (default {HTTP_CONNECT_TIMEOUT})")
+    parser.add_argument("--read-timeout", type=int, default=None, help=f"HTTP read timeout seconds (default {HTTP_READ_TIMEOUT})")
     
     args = parser.parse_args()
     
@@ -717,7 +864,24 @@ Examples:
     print(f"SSL Verification: {'enabled' if args.verify_ssl else 'disabled'}")
     print("=" * 60)
     
-    run_download(args.start_year, args.end_year, sensors, out_dir, verify_ssl=args.verify_ssl)
+    extra_params = dict(parse_qsl(args.extra_params)) if args.extra_params else None
+    run_download(
+        args.start_year,
+        args.end_year,
+        sensors,
+        out_dir,
+        verify_ssl=args.verify_ssl,
+        extra_params=extra_params,
+        debug=(args.debug or args.save_html),
+        save_html=args.save_html,
+        save_html_limit=args.save_html_limit,
+        limit_per_year=args.limit_per_year,
+        post_range=args.post_range,
+        date_start_override=args.date_start,
+        date_end_override=args.date_end,
+        connect_timeout=args.connect_timeout,
+        read_timeout=args.read_timeout,
+    )
 
 
 if __name__ == "__main__":

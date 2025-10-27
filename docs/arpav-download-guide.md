@@ -2,6 +2,16 @@
 
 Guide for downloading meteorological data from ARPAV (Agenzia Regionale per la Prevenzione e Protezione Ambientale del Veneto) monitoring stations in the Veneto region.
 
+
+## TLDR;
+
+cd /Users/federicorubbi/Documents/unitn/public-ai-challenge/appa-chinquinaria
+source venv/bin/activate
+python scripts/bulk_download_arpav.py \
+  --start-year 2000 --end-year 2025 \
+  --out arpav_2000_2025 \
+  --connect-timeout 30 --read-timeout 240
+
 ## Overview
 
 The ARPAV bulk downloader (`bulk_download_arpav.py`) collects weather data from meteorological stations across the Veneto region. The script supports:
