@@ -46,16 +46,6 @@ python ETL_eea_pipeline.py
 python merge_datasets.py
 ```
 
-## Data Features
-
-### Precipitation
-- **Tot da Annale Idrologico** (1923-2025): Official daily totals ✅ Validated
-- **Pioggia** (1990-2025): Recent measurements ⚠️ Raw data
-
-### Temperature
-- **Min/Max da Annale Idrologico** (1990-2025): Daily extremes ✅ Validated
-- **Temperatura** (1990-2025): Recent readings ⚠️ Raw data
-
 ## Output Files
 
 | File | Description | Records |
