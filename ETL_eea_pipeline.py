@@ -195,6 +195,10 @@ def aggregate_by_microareas(
         pd.DataFrame: Aggregated DataFrame with same schema as input
     """
     
+    # Configure pandas display options to show all columns
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    
     def find_microarea(lat, lon):
         """Find which microarea a point belongs to."""
         for idx, micro in enumerate(microareas):
@@ -205,12 +209,30 @@ def aggregate_by_microareas(
     
     # Apply microarea assignment
     df_copy = df.copy()
+    print(f"\n\n=== AGGREGATE_BY_MICROAREAS DEBUG ({region_name}) ===\n")
+    print(f"Initial DataFrame shape: {df_copy.shape}")
+    print(f"Initial DataFrame columns: {list(df_copy.columns)}\n")
+    print("Initial DataFrame (first 10 rows):")
+    print(df_copy.head(10))
+    
     df_copy['_microarea_idx'] = df_copy.apply(
         lambda row: find_microarea(row['Latitudine'], row['Longitudine']), axis=1
     )
+    print(f"\nAfter microarea assignment:")
+    print(f"  Rows with assigned microarea: {df_copy['_microarea_idx'].notna().sum()}")
+    print(f"  Rows without microarea: {df_copy['_microarea_idx'].isna().sum()}")
+    print("\nDataFrame after microarea indexing (first 10 rows):")
+    print(df_copy.head(10))
     
     # Filter out rows that don't belong to any microarea
     df_copy = df_copy[df_copy['_microarea_idx'].notna()]
+    print(f"\nAfter filtering unassigned rows:")
+    print(f"  DataFrame shape: {df_copy.shape}")
+    print("Filtered DataFrame (first 10 rows):")
+    print(df_copy.head(10))
+    
+    # Rename Stazione to NamesOfAggregatedStats
+    df_copy.rename(columns={'Stazione': 'NamesOfAggregatedStats'}, inplace=True)
     
     # Aggregate by microarea index, Data (date), and Inquinante (pollutant)
     agg_dict = {
@@ -221,33 +243,72 @@ def aggregate_by_microareas(
         'Unità di misura': 'first',
         'Inquinante': 'first',
         'Data': 'first',
-        'Stazione': lambda x: '|'.join(x.unique())
+        'NamesOfAggregatedStats': lambda x: '|'.join(x.unique())
     }
     
     df_agg = df_copy.groupby(['_microarea_idx', 'Data', 'Inquinante'], as_index=False).agg(agg_dict)
+    df_agg.rename(columns={'Valore': 'Valore_medio_microarea'}, inplace=True)
+    df_agg.rename(columns={'Latitudine': 'Latitudine_media_microarea'}, inplace=True)
+    df_agg.rename(columns={'Longitudine': 'Longitudine_media_microarea'}, inplace=True)
+    print(f"\nAfter groupby aggregation:")
+    print(f"  DataFrame shape: {df_agg.shape}")
+    print(f"  Unique microareas: {df_agg['_microarea_idx'].nunique()}")
+    print(f"  Unique dates: {df_agg['Data'].nunique()}")
+    print(f"  Unique pollutants: {df_agg['Inquinante'].nunique()}")
+    print("Aggregated DataFrame (first 10 rows):")
+    print(df_agg.head(10))
+    
+    # Add microarea boundary columns
+    df_agg['min_lat'] = df_agg['_microarea_idx'].apply(lambda x: microareas[int(x)]['min_lat'])
+    df_agg['max_lat'] = df_agg['_microarea_idx'].apply(lambda x: microareas[int(x)]['max_lat'])
+    df_agg['min_lon'] = df_agg['_microarea_idx'].apply(lambda x: microareas[int(x)]['min_lon'])
+    df_agg['max_lon'] = df_agg['_microarea_idx'].apply(lambda x: microareas[int(x)]['max_lon'])
+    print(f"\nAfter adding boundary columns:")
+    print(f"  Columns: {df_agg.columns.tolist()}")
+    print("DataFrame with boundaries (first 10 rows):")
+    print(df_agg.head(10))
     
     # Create Region_microarea_id as primary key
     df_agg['Region_microarea_id'] = df_agg['_microarea_idx'].apply(
         lambda x: f"{region_name}_MA_{int(x)}"
     )
+    print(f"\nAfter creating Region_microarea_id:")
+    print(f"  Sample IDs: {df_agg['Region_microarea_id'].head(3).tolist()}")
+    print("DataFrame with Region_microarea_id (first 10 rows):")
+    print(df_agg.head(10))
     
     # Drop temporary column
     df_agg.drop(columns=['_microarea_idx'], inplace=True)
+    print(f"\nAfter dropping temporary column:")
+    print(f"  DataFrame columns: {list(df_agg.columns)}")
     
     # Reorder columns to match original schema (excluding Comune and Microarea_ID)
     columns_order = [
-        'Region_microarea_id', 'Data', 'Inquinante', 'Valore', 'Latitudine',
-        'Longitudine', 'Nazione', 'Unità di misura'
+        'Region_microarea_id', 'Data', 'Inquinante', 'Valore_medio_microarea', 'min_lat', 'min_lon',
+        'max_lat', 'max_lon', 'Latitudine_media_microarea', 'Longitudine_media_microarea', 'Nazione',
+        'Unità di misura', 'NamesOfAggregatedStats'
     ]
     
     # Keep only columns that exist
     cols_to_keep = [col for col in columns_order if col in df_agg.columns]
     df_agg = df_agg[cols_to_keep]
+    print(f"\nAfter column reordering:")
+    print(f"  Final columns: {list(df_agg.columns)}")
+    print("DataFrame after reordering (first 10 rows):")
+    print(df_agg.head(10))
     
     # Set Region_microarea_id as index
     df_agg = df_agg.set_index('Region_microarea_id')
+    df_agg = df_agg.reset_index(drop=False)
     
-    return df_agg.reset_index(drop=False)
+    print(f"\nFinal aggregated DataFrame:")
+    print(f"  Shape: {df_agg.shape}")
+    print(f"  Total aggregated records: {len(df_agg)}")
+    print("Final DataFrame (first 10 rows):")
+    print(df_agg.head(10))
+    print(f"\n=== END DEBUG ({region_name}) ===\n\n")
+    
+    return df_agg
 
 
 def export_to_csv(df: pd.DataFrame, output_path: str) -> None:
@@ -350,7 +411,7 @@ def main():
     export_to_csv(df_eea_aggregated, output_csv_path)
     
     print("\n" + "="*100)
-    print("Pipeline completed successfully!")
+    print("ETL EEA Pipeline completed successfully!")
     print("="*100)
     
     return df_eea, df_eea_aggregated

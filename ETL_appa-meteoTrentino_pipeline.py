@@ -28,178 +28,6 @@ METEO_DIR = DATA_DIR_PATH + "/meteo-trentino-data"
 OUTPUT_DIR_PATH = "./output"
 
 
-class WeatherPlotter:
-    """
-    Interactive weather data plotter for Jupyter/Colab notebooks.
-
-    Attributes:
-    -----------
-    cleaned_dfs : dict
-        Dictionary of cleaned dataframes {station_name: df}
-    variable_map : dict
-        Dictionary mapping stations to their available variables
-    """
-
-    def __init__(
-        self,
-        cleaned_dfs: Dict[str, pd.DataFrame],
-        variable_map: Dict[str, List[str]]
-    ) -> None:
-        """
-        Initialize the WeatherPlotter.
-
-        Parameters:
-        -----------
-        cleaned_dfs : dict
-            Dictionary of cleaned dataframes {station_name: df}
-        variable_map : dict
-            Dictionary mapping stations to their available variables
-        """
-        self.cleaned_dfs: Dict[str, pd.DataFrame] = cleaned_dfs
-        self.variable_map: Dict[str, List[str]] = variable_map
-        self.stations: List[str] = list(cleaned_dfs.keys())
-        
-        # Create widgets
-        self.station_dropdown: widgets.Dropdown = widgets.Dropdown(
-            options=self.stations,
-            value=self.stations[0],
-            description='Station:',
-            style={'description_width': 'initial'}
-        )
-        self.variable_dropdown: widgets.Dropdown = widgets.Dropdown(
-            options=[],
-            description='Variable:',
-            style={'description_width': 'initial'}
-        )
-        self.output: widgets.Output = widgets.Output()
-        
-        # Set up observers
-        self.station_dropdown.observe(self.on_station_change, names='value')
-        self.variable_dropdown.observe(self.on_variable_change, names='value')
-
-        # Initialize variables for first station
-        self.update_variables()
-
-    def update_variables(self) -> None:
-        """Update available variables based on selected station."""
-        selected_station: str = self.station_dropdown.value
-        available_vars: List[str] = self.variable_map.get(selected_station, [])
-        self.variable_dropdown.options = available_vars
-        if available_vars:
-            self.variable_dropdown.value = available_vars[0]
-
-    def on_station_change(self, change: Dict[str, Any]) -> None:
-        """Callback when station dropdown changes."""
-        self.update_variables()
-        self.plot_data()
-
-    def on_variable_change(self, change: Dict[str, Any]) -> None:
-        """Callback when variable dropdown changes."""
-        self.plot_data()
-
-    def plot_data(self) -> None:
-        """Generate plot based on selected station and variable."""
-        with self.output:
-            self.output.clear_output(wait=True)
-            station: str = self.station_dropdown.value
-            variable: str = self.variable_dropdown.value
-            
-            if not variable:
-                print("No variables available for this station")
-                return
-            
-            # Get the dataframe
-            df: pd.DataFrame = self.cleaned_dfs[station]
-            
-            # Check if variable exists in dataframe
-            if variable not in df.columns:
-                print(f"Variable '{variable}' not found in station {station}")
-                return
-            
-            # Create plot
-            fig, ax = plt.subplots(figsize=(14, 6))
-            
-            # Plot the data
-            ax.plot(df['Date'], df[variable], linewidth=1.5, color='#2E86AB')
-            
-            # Styling
-            ax.set_xlabel('Date', fontsize=12, fontweight='bold')
-            ax.set_ylabel(variable, fontsize=12, fontweight='bold')
-            ax.set_title(
-                f'{variable} - Station {station}\n{df["Date"].min().strftime("%d/%m/%Y")} to {df["Date"].max().strftime("%d/%m/%Y")}',
-                fontsize=14, fontweight='bold', pad=20
-            )
-            ax.grid(True, alpha=0.3, linestyle='--')
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            
-            # Rotate x-axis labels for better readability
-            plt.xticks(rotation=45, ha='right')
-            
-            # Add statistics
-            stats_text: str = (
-                f'Mean: {df[variable].mean():.2f}\n'
-                f'Min: {df[variable].min():.2f}\n'
-                f'Max: {df[variable].max():.2f}'
-            )
-            ax.text(
-                0.02, 0.98, stats_text, transform=ax.transAxes,
-                fontsize=10, verticalalignment='top',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            )
-            plt.tight_layout()
-            plt.show()
-
-    def display(self) -> None:
-        """Display the interactive plot widget."""
-        # Display widgets
-        display(widgets.VBox([
-            widgets.HBox([self.station_dropdown, self.variable_dropdown]),
-            self.output
-        ]))
-        # Generate initial plot
-        self.plot_data()
-
-
-def prepare_data_for_plotter(df: pd.DataFrame) -> Tuple[Dict[str, pd.DataFrame], Dict[str, List[str]]]:
-    """
-    Prepares the merged dataframe for the WeatherPlotter class.
-
-    Args:
-        df: The merged dataframe containing data from all stations.
-
-    Returns:
-        A tuple containing:
-            - cleaned_dfs: Dictionary of dataframes {station_name: df}
-            - variable_map: Dictionary mapping stations to their available variables
-    """
-    cleaned_dfs = {}
-    variable_map = {}
-
-    for station_id, station_df in df.groupby('Station_ID'):
-        # Ensure 'Date' column is datetime
-        station_df['Date'] = pd.to_datetime(station_df['Date'])
-        # Drop the Station_ID column as it's now the key
-        station_df = station_df.drop(columns=['Station_ID'])
-        cleaned_dfs[station_id] = station_df
-
-        # Get variable columns, excluding 'Date'
-        variable_cols = [col for col in station_df.columns if col != 'Date']
-        variable_map[station_id] = variable_cols
-
-    return cleaned_dfs, variable_map
-
-
-def meteo_data_visualization(meteo_df):
-    """Visualize weather data using interactive plotter."""
-    # Prepare the data using the new function
-    cleaned_dfs, variable_map = prepare_data_for_plotter(meteo_df)
-
-    # Initialize and display the plotter
-    weather_plotter = WeatherPlotter(cleaned_dfs, variable_map)
-    weather_plotter.display()
-
-
 def download_meteo_trentino(out_dir) -> Path:
     """
     Download MeteoTrentino data from Google Drive folder and extract CSVs.
@@ -364,6 +192,10 @@ def standardize_weather_data(
 
 def preprocessing_meteo_data(meteo_dir):
     """Preprocess MeteoTrentino weather data."""
+    print("\n" + "="*80)
+    print("DEBUGGING: METEO DATA PREPROCESSING")
+    print("="*80)
+    
     # Dict comprehension to build python dict for each dfs
     dfs = {
         df_name.replace('.csv', ''): data_loading(df_name, meteo_dir)
@@ -380,7 +212,10 @@ def preprocessing_meteo_data(meteo_dir):
         cleaned_df, variable_map = standardize_weather_data(df, df_name, variable_map)
         cleaned_dfs[df_name] = cleaned_df
     
-    return pd.concat(cleaned_dfs.values(), ignore_index=True)
+    # Concatenate all stations
+    result_df = pd.concat(cleaned_dfs.values(), ignore_index=True)
+    
+    return result_df
 
 
 def appa_download(out_dir) -> list:
@@ -503,11 +338,11 @@ def process_appa_measurements(df: pd.DataFrame, df_metadata: pd.DataFrame) -> pd
 
     unmatched = df[df["_merge"] == "left_only"]
     if len(unmatched) > 0:
-        print(f"⚠ Warning: {len(unmatched)} unmatched measurements")
+        print(f"Warning: {len(unmatched)} unmatched measurements")
 
     # Filter PM10 only
     df = df[df['Inquinante'] == 'PM10']
-    print(f"✓ Filtered to PM10: {len(df)} records")
+    print(f"Filtered to PM10: {len(df)} records")
 
     # Clean and transform data
     df["Ora"] = df["Ora"] - 1
@@ -546,27 +381,55 @@ def aggregate_to_daily(df: pd.DataFrame) -> pd.DataFrame:
 
 def preprocessing_appa_data(appa_dir):
     """Main preprocessing pipeline for APPA air quality data."""
+    print("\n" + "="*80)
+    print("DEBUGGING: APPA DATA PREPROCESSING")
+    print("="*80)
+    
     output_folder = appa_dir
 
     # Load main dataset
     df = pd.read_csv(f"{output_folder}/appa_data.csv")
-    print(f"✓ Loaded APPA data: {len(df)} records")
+    print(f"\n RAW APPA DATA LOADED:")
+    print(f"  Rows: {len(df)} | Columns: {len(df.columns)}")
+    print(f"  Columns: {df.columns.tolist()}")
+    print(f"  Sample:\n{df.head(2)}\n")
 
     # Load metadata
     df_metadata = load_appa_metadata(output_folder)
+    print(f"\n APPA METADATA LOADED:")
+    print(f"  Rows: {len(df_metadata)} | Columns: {len(df_metadata.columns)}")
+    print(f"  Columns: {df_metadata.columns.tolist()}")
+    print(f"  Sample:\n{df_metadata.head(2)}\n")
 
     # Process measurements
+    print(f"\nPROCESSING MEASUREMENTS:")
     df = process_appa_measurements(df, df_metadata)
+    print(f"  ├─ After merge & filtering: {len(df)} rows × {len(df.columns)} columns")
+    print(f"  ├─ Columns: {df.columns.tolist()}")
+    print(f"  ├─ Unique pollutants: {df['Inquinante'].unique() if 'Inquinante' in df.columns else 'N/A'}")
+    print(f"  └─ Sample:\n{df.head(2)}\n")
 
     # Aggregate to daily
+    print(f"\nAGGREGATING TO DAILY:")
+    print(f"  ├─ Before: {len(df)} records")
     df = aggregate_to_daily(df)
+    print(f"  ├─ After: {len(df)} records")
+    print(f"  ├─ Columns: {df.columns.tolist()}")
+    print(f"  └─ Sample:\n{df.head(2)}\n")
 
     # Add country and region columns
+    print(f"\nADDING METADATA:")
     df['Nazione'] = 'Italy'
     df['Comune'] = 'APPA'
+    print(f"  ├─ Added Nazione & Comune columns")
+    print(f"  └─ Rows: {len(df)}\n")
 
     # Fetch weather stations and find nearest
+    print(f"\nMATCHING TO NEAREST WEATHER STATIONS:")
     weather_stations = fetch_weather_stations(appa_dir)
+    print(f"  ├─ Weather stations available: {len(weather_stations)}")
+    print(f"  ├─ Stations data:\n{weather_stations.head(2)}\n")
+    
     df['Station_ID'] = df.apply(
         lambda row: find_nearest_station(
             row['Latitudine'],
@@ -574,38 +437,125 @@ def preprocessing_appa_data(appa_dir):
             weather_stations),
         axis=1
     )
+    print(f"  ├─ Stations matched: {df['Station_ID'].nunique()}")
+    print(f"  └─ Unique stations: {df['Station_ID'].unique()}\n")
 
-    print(f"✓ Processing complete: {len(df)} final records")
+    print("\n" + "-"*80)
+    print(" FINAL APPA DATASET AFTER PREPROCESSING:")
+    print(f"  Total rows: {len(df)}")
+    print(f"  Total columns: {len(df.columns)}")
+    print(f"  Columns: {df.columns.tolist()}")
+    print(f"  Date range: {df['Data'].min()} to {df['Data'].max()}")
+    print(f"  Unique stations (APPA): {df['Stazione'].nunique()}")
+    print(f"  Unique weather stations: {df['Station_ID'].nunique()}")
+    print(f"  Memory usage: {df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    print(f"  Missing values:\n{df.isnull().sum()}")
+    print(f"  Sample:\n{df.head(3)}\n")
+    print("="*80 + "\n")
 
     return df
 
 
 def merge_datasets(meteo_df: pd.DataFrame, appa_df: pd.DataFrame) -> Tuple[pd.DataFrame, Path]:
     """Merge MeteoTrentino and APPA datasets."""
-    print("Merging...")
-
+    print("\n" + "="*80)
+    print("DEBUGGING: DATASET MERGING")
+    print("="*80)
+    
+    print(f"\n DATASETS BEFORE MERGE:")
+    print(f"\n  METEO DATASET:")
+    print(f"  ├─ Rows: {len(meteo_df)}")
+    print(f"  ├─ Columns: {len(meteo_df.columns)}")
+    print(f"  ├─ Columns list: {meteo_df.columns.tolist()}")
+    print(f"  ├─ Date range: {meteo_df['Date'].min() if 'Date' in meteo_df.columns else 'N/A'} to {meteo_df['Date'].max() if 'Date' in meteo_df.columns else 'N/A'}")
+    print(f"  ├─ Unique stations: {meteo_df['Station_ID'].nunique() if 'Station_ID' in meteo_df.columns else 'N/A'}")
+    print(f"  ├─ Memory: {meteo_df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    print(f"  ├─ Missing values: {meteo_df.isnull().sum().sum()}")
+    print(f"  └─ Sample:\n{meteo_df.head(2)}\n")
+    
+    print(f"  APPA DATASET:")
+    print(f"  ├─ Rows: {len(appa_df)}")
+    print(f"  ├─ Columns: {len(appa_df.columns)}")
+    print(f"  ├─ Columns list: {appa_df.columns.tolist()}")
+    print(f"  ├─ Date range: {appa_df['Data'].min()} to {appa_df['Data'].max()}")
+    print(f"  ├─ Unique APPA stations: {appa_df['Stazione'].nunique()}")
+    print(f"  ├─ Unique weather stations: {appa_df['Station_ID'].nunique()}")
+    print(f"  ├─ Memory: {appa_df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    print(f"  ├─ Missing values: {appa_df.isnull().sum().sum()}")
+    print(f"  └─ Sample:\n{appa_df.head(2)}\n")
+    
     # 1) Date parsing robusto
+    print(f"\nSTEP 1 - STANDARDIZING DATE COLUMNS:")
     if "Date" in meteo_df.columns and "Data" not in meteo_df.columns:
         meteo_df = meteo_df.rename(columns={"Date": "Data"})
+        print(f"  ├─ Renamed 'Date' to 'Data' in METEO")
+    
     meteo_df["Data"] = pd.to_datetime(meteo_df["Data"], dayfirst=True, errors="coerce").dt.date
+    print(f"  ├─ METEO 'Data' converted to date format")
+    print(f"  ├─ METEO date range: {meteo_df['Data'].min()} to {meteo_df['Data'].max()}")
+    print(f"  ├─ METEO null dates: {meteo_df['Data'].isnull().sum()}")
+    
     appa_df["Data"] = pd.to_datetime(appa_df["Data"], dayfirst=True, errors="coerce").dt.date
+    print(f"  ├─ APPA 'Data' converted to date format")
+    print(f"  ├─ APPA date range: {appa_df['Data'].min()} to {appa_df['Data'].max()}")
+    print(f"  └─ APPA null dates: {appa_df['Data'].isnull().sum()}\n")
 
     # 2) Rimuovi colonne duplicate nel meteo
+    print(f"\nSTEP 2 - REMOVING DUPLICATES:")
+    dup_before = meteo_df.columns.tolist()
     meteo_df = meteo_df.loc[:, ~meteo_df.columns.duplicated()]
+    dup_after = meteo_df.columns.tolist()
+    print(f"  ├─ METEO columns before: {len(dup_before)}")
+    print(f"  ├─ METEO columns after: {len(dup_after)}")
+    print(f"  └─ Duplicates removed: {len(dup_before) - len(dup_after)}\n")
 
     # 3) Merge su Station_ID + Data
+    print(f"\nSTEP 3 - PERFORMING MERGE:")
+    print(f"  ├─ Merge keys: Station_ID + Data")
+    print(f"  ├─ METEO unique Station_ID values: {meteo_df['Station_ID'].nunique()}")
+    print(f"  ├─ APPA unique Station_ID values: {appa_df['Station_ID'].nunique()}")
+    print(f"  ├─ Overlap check:")
+    overlap_stations = set(meteo_df['Station_ID'].unique()) & set(appa_df['Station_ID'].unique())
+    print(f"    └─ Common stations: {len(overlap_stations)} - {sorted(overlap_stations)}\n")
+    
     final_df = pd.merge(appa_df, meteo_df, on=["Station_ID", "Data"], how="inner")
+    
+    print(f"  ├─ MERGE RESULT:")
+    print(f"  ├─ Rows before merge: APPA={len(appa_df)}, METEO={len(meteo_df)}")
+    print(f"  ├─ Rows after merge: {len(final_df)}")
+    print(f"  ├─ Match rate: {(len(final_df) / len(appa_df) * 100):.2f}%")
+    print(f"  ├─ Columns: {len(final_df)}")
+    print(f"  └─ Sample:\n{final_df.head(2)}\n")
 
     # 4) Rinomina per chiarezza
+    print(f"\nSTEP 4 - RENAMING COLUMNS:")
     final_df = final_df.rename(columns={"Station_ID": "StazioneMeteo"})
+    print(f"  └─ Renamed 'Station_ID' to 'StazioneMeteo'\n")
 
     # 5) Salvataggio
+    print(f"\nSTEP 5 - SAVING FINAL DATASET:")
     out_dir = Path(OUTPUT_DIR_PATH)
     out_dir.mkdir(parents=True, exist_ok=True)
     final_data_path = out_dir / "historical_weather_airPM_trentino.csv"
     final_df.to_csv(final_data_path, index=False)
     
-    print(f"✓ Merged dataset saved: {len(final_df)} records")
+    print(f"  ├─ File saved: {final_data_path}")
+    print(f"  ├─ File size: {os.path.getsize(final_data_path) / 1024**2:.2f} MB")
+    print(f"  └─ Records: {len(final_df)}\n")
+    
+    print("\n" + "-"*80)
+    print("FINAL MERGED DATASET:")
+    print(f"  Total rows: {len(final_df)}")
+    print(f"  Total columns: {len(final_df.columns)}")
+    print(f"  Columns: {final_df.columns.tolist()}")
+    print(f"  Date range: {final_df['Data'].min()} to {final_df['Data'].max()}")
+    print(f"  Unique APPA stations: {final_df['Stazione'].nunique()}")
+    print(f"  Unique weather stations: {final_df['StazioneMeteo'].nunique()}")
+    print(f"  Memory usage: {final_df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    print(f"  Missing values:\n{final_df.isnull().sum()}")
+    print(f"  Data types:\n{final_df.dtypes}")
+    print(f"  Sample (first 3 rows):\n{final_df.head(3)}\n")
+    print("="*80 + "\n")
     
     return final_df, final_data_path
 
@@ -645,13 +595,22 @@ def main():
     
     df, output_file_path = merge_datasets(meteo_df, appa_df)
     
-    print(f"\n✓ Final merged dataset saved to: {output_file_path}")
-    print(f"  Total records: {len(df)}")
-    print(f"  Columns: {', '.join(df.columns.tolist())}")
+    print(f"\n{'='*80}")
+    print(" FINAL SUMMARY")
+    print(f"{'='*80}")
+    print(f" Output file: {output_file_path}")
+    print(f" Final dataset statistics:")
+    print(f"  ├─ Total records: {len(df):,}")
+    print(f"  ├─ Total columns: {len(df.columns)}")
+    print(f"  ├─ Memory size: {os.path.getsize(output_file_path) / 1024**2:.2f} MB")
+    print(f"  ├─ Date coverage: {df['Data'].min()} to {df['Data'].max()}")
+    print(f"  ├─ APPA stations: {df['Stazione'].nunique()}")
+    print(f"  ├─ Weather stations: {df['StazioneMeteo'].nunique()}")
+    print(f"  └─ Data quality: {(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.2f}% complete")
     
-    print("\n" + "="*80)
-    print("ETL PIPELINE COMPLETED SUCCESSFULLY!")
-    print("="*80)
+    print(f"\n{'='*80}")
+    print("APPA-meteoTrentino ETL PIPELINE COMPLETED SUCCESSFULLY!")
+    print(f"{'='*80}\n")
     
     return df, output_file_path
 
