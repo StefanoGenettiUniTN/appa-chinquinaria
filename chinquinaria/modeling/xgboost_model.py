@@ -1,0 +1,21 @@
+"""
+XGBoost model implementation for pollutant forecasting.
+"""
+
+from xgboost import XGBRegressor
+
+class XGBoostModel:
+    def __init__(self, **params):
+        self.model = XGBRegressor(**params)
+
+    def train(self, X_train, y_train):
+        self.model.fit(X_train, y_train)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def save(self, path):
+        self.model.save_model(path)
+
+    def load(self, path):
+        self.model.load_model(path)
