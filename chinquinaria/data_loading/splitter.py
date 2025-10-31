@@ -6,8 +6,8 @@ Splits the dataset into training and test sets and defines temporal windows.
 import pandas as pd
 
 def split_train_test(df, training_start_date, training_end_date, testing_start_date, testing_end_date):
-    train_df = df[(df['data'] >= training_start_date) & (df['data'] < training_end_date)]
-    test_df = df[(df['data'] >= testing_start_date) & (df['data'] < testing_end_date)]
+    train_df = df[(df['Data'] >= training_start_date) & (df['Data'] < training_end_date)]
+    test_df = df[(df['Data'] >= testing_start_date) & (df['Data'] < testing_end_date)]
     return train_df, test_df
 
 def create_time_windows(test_df, window_size_months):

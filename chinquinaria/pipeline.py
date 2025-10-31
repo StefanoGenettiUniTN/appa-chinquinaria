@@ -19,21 +19,25 @@ def run_pipeline():
     logger.info("Loading data...")
     df = load_data(CONFIG["dataset"])
 
-    # check if data is loaded
     if df.empty:
         logger.error("Data loading failed or returned empty dataset.")
     else:
         logger.info(f"Data loaded successfully with {len(df)} records.")
         if CONFIG["debug"]:
-            # columns
             for col in df.columns:
                 logger.debug(f"Column: {col}")
-            # sample data
             logger.debug(f"Data sample:\n{df.head()}")
 
-    exit(0)
+    train_df, test_df = split_train_test(df, CONFIG["start_training_date"], CONFIG["end_training_date"],
+                                        CONFIG["start_testing_date"], CONFIG["end_testing_date"])
 
-    train_df, test_df = split_train_test(df, CONFIG["split_date"])
+    if CONFIG["debug"]:
+        logger.debug(f"Training data length: {len(train_df)}")
+        logger.debug(f"Training data date range: {train_df['Data'].min()} to {train_df['Data'].max()}")
+        logger.debug(f"Testing data length: {len(test_df)}")
+        logger.debug(f"Testing data date range: {test_df['Data'].min()} to {test_df['Data'].max()}")
+
+    exit(0)
 
     logger.info("Training model...")
     model = train_model(train_df, CONFIG["target"])
