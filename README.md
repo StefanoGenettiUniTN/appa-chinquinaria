@@ -21,6 +21,12 @@ This repository provides tools to:
 | **EEA** | Air Quality | European air quality data from multiple countries and stations |
 | **ERA5** | Reanalysis | Boundary Layer Height (BLH) data from Copernicus Climate Data Store |
 
+## 📦 Complete datasets
+
+| Version | Description | Google Drive link |
+|---------|-------------|-------------------|
+| **v1_day** | Data version 1 (2025-10-29), aggregation type: day | [link](https://drive.google.com/file/d/1EIqZAUtGsOI4ekDLiRoYPfLzY-vO-hfw/view?usp=drive_link)
+
 ## 📁 Project Structure
 
 ```
@@ -66,6 +72,39 @@ appa-chinquinaria/
 └── README.md                      # This file
 ```
 
+## 🍔 How to commit contributions
+Follow these steps to commit your contributions:
+1. **Create a new branch for your feature**
+```bash
+   git checkout -b my-feature-branch
+```
+2. **Work on your feature**
+
+   Make your changes, commit frequently, and test thoroughly.
+
+3. **Switch back to `main`**
+```bash
+   git checkout main
+```
+4. **Update `main` with the latest changes**
+```bash
+   git pull
+```
+5. **Merge your branch into `main`**
+```bash
+   git merge my-feature-branch
+```
+- ✅ If there are no conflicts, the merge will complete automatically.
+- ⚠️ If there are conflicts, Git will prompt you to resolve them manually. After resolving conflicts:
+```bash
+   git add .
+   git commit
+```
+6. **Push to remote**
+```bash
+   git push
+```
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -100,6 +139,12 @@ appa-chinquinaria/
    ```
 
 ## 📖 Usage
+
+### Execute complete pipeline
+To execute the complete pipeline set your configuration in `chinquinaria/config.py` and run:
+```bash
+python -m chinquinaria.pipeline
+```
 
 ### Downloading APPA Trento Air Quality Data
 
