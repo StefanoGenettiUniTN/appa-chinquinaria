@@ -2,7 +2,7 @@
 Train the selected model using the training dataset.
 """
 
-from xgboost_model import XGBoostModel
+from chinquinaria.modeling.xgboost_model import XGBoostModel
 from chinquinaria.utils.file_io import save_pickle
 
 def train_model(train_df):
