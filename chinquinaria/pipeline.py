@@ -24,11 +24,12 @@ def run_pipeline():
         logger.error("Data loading failed or returned empty dataset.")
     else:
         logger.info(f"Data loaded successfully with {len(df)} records.")
-        # columns
-        for col in df.columns:
-            logger.info(f"Column: {col}")
-        # sample data
-        logger.info(f"Data sample:\n{df.head()}")
+        if CONFIG["debug"]:
+            # columns
+            for col in df.columns:
+                logger.debug(f"Column: {col}")
+            # sample data
+            logger.debug(f"Data sample:\n{df.head()}")
 
     exit(0)
 

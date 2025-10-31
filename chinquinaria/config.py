@@ -8,6 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONFIG = {
+    "debug": True,
     "dataset": "v1_day",
     "start_training_date": "2013-01-01",
     "end_training_date": "2024-01-01",

@@ -1,4 +1,5 @@
 import logging
+from chinquinaria.config import CONFIG
 
 def get_logger(name):
     logger = logging.getLogger(name)
@@ -7,5 +8,8 @@ def get_logger(name):
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        if CONFIG.get("debug", False):
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
     return logger
