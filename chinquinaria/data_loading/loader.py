@@ -5,9 +5,21 @@ Loads and preprocesses the dataset from CSV.
 
 import pandas as pd
 
-def load_data(path):
+def load_data(dataset_version: str) -> pd.DataFrame:
     """
-    Load the dataset from CSV and perform initial cleaning.
+    Load the dataset from Google Drive.
+    - v1_day: Data version 1 (2025-10-29), aggregation type: day
     """
-    df = pd.read_csv(path)
+    # dictionary mapping dataset versions to Google Drive file IDs
+    dataset_file_ids = {
+        "v1_day": "1EIqZAUtGsOI4ekDLiRoYPfLzY-vO-hfw"
+    }
+
+    file_id = dataset_file_ids.get(dataset_version)
+    if not file_id:
+        raise ValueError(f"Unknown dataset version: {dataset_version}")
+
+    # Load the dataset from Google Drive
+    df = pd.read_csv(f"https://drive.google.com/uc?id={file_id}")
+
     return df

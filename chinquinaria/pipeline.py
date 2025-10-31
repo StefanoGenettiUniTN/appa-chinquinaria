@@ -17,7 +17,21 @@ logger = get_logger(__name__)
 
 def run_pipeline():
     logger.info("Loading data...")
-    df = load_data(CONFIG["data_path"])
+    df = load_data(CONFIG["dataset"])
+
+    # check if data is loaded
+    if df.empty:
+        logger.error("Data loading failed or returned empty dataset.")
+    else:
+        logger.info(f"Data loaded successfully with {len(df)} records.")
+        # columns
+        for col in df.columns:
+            logger.info(f"Column: {col}")
+        # sample data
+        logger.info(f"Data sample:\n{df.head()}")
+
+    exit(0)
+
     train_df, test_df = split_train_test(df, CONFIG["split_date"])
 
     logger.info("Training model...")

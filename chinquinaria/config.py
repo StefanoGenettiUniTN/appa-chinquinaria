@@ -8,7 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONFIG = {
-    "data_path": BASE_DIR / "data" / "raw" / "pollutant_data.csv",
+    "dataset": "v1_day",
     "start_training_date": "2013-01-01",
     "end_training_date": "2024-01-01",
     "start_testing_date": "2024-01-01",
