@@ -37,10 +37,10 @@ def run_pipeline():
         logger.debug(f"Testing data length: {len(test_df)}")
         logger.debug(f"Testing data date range: {test_df['Data'].min()} to {test_df['Data'].max()}")
 
-    exit(0)
-
     logger.info("Training model...")
-    model = train_model(train_df, CONFIG["target"])
+    model = train_model(train_df)
+    logger.info("Model training completed.")
+    exit(0)
 
     windows = create_time_windows(test_df, CONFIG["window_size_months"])
     window_summaries = []
