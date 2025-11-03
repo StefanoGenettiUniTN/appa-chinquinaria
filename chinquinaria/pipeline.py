@@ -40,10 +40,17 @@ def run_pipeline():
     logger.info("Training model...")
     model = train_model(train_df)
     logger.info("Model training completed.")
-    exit(0)
 
     windows = create_time_windows(test_df, CONFIG["window_size_months"])
     window_summaries = []
+    
+    if CONFIG["debug"]:
+        logger.debug(f"Number of time windows created: {len(windows)}")
+        for i, window in enumerate(windows):
+            logger.debug(f"Window {i+1} length: {len(window)}")
+            logger.debug(f"Window {i+1} date range: {window['Data'].min()} to {window['Data'].max()}")
+
+    exit(0)
 
     for i, window in enumerate(windows, start=1):
         logger.info(f"Processing window {i}/{len(windows)}...")
