@@ -65,9 +65,13 @@ def run_pipeline():
             window_index=i
         )
 
-        #shap_text = generate_shap_summary(shap_res, i)
-        #summary_text = summarize_shap(shap_text, CONFIG["llm_type"])
-        #window_summaries.append(summary_text)
+        shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
+        summary_text = summarize_shap(shap_text)
+
+        if CONFIG["debug"]:
+            logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
+
+        window_summaries.append(summary_text)
 
     exit(0)
 

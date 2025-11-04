@@ -16,3 +16,5 @@ transformers
 openai
 scikit-learn
 shap
+torch
+python-dotenv

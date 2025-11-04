@@ -197,9 +197,9 @@ def run_shap(model, window_df: pd.DataFrame) -> Dict[str, List[float]]:
         "top_features": mean_abs.head(10).to_dict()
     }
 
-def generate_shap_summary(shap_result, window_index):
+def generate_shap_summary(shap_result, window_from, window_to) -> str:
     text = f"""
-    SHAP Summary for Window {window_index}:
+    Feature importance for window from {window_from} to {window_to}:
     Top Influential Features:
     {shap_result['top_features']}
     """

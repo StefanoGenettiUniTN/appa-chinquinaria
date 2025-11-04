@@ -2,9 +2,11 @@
 Central configuration file.
 Use this to define paths, constants, and default model parameters.
 """
-
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONFIG = {
@@ -16,6 +18,8 @@ CONFIG = {
     "end_testing_date": "2025-01-01",
     "window_size_months": 1,
     "model_type": "xgboost",
-    "llm_type": "open_source",  # or "proprietary"
+    "llm_type": "proprietary",  # "open_source" or "proprietary"
+    "endpoint": "https://models.inference.ai.azure.com",
+    "token": os.environ.get('GITHUB_TOKEN'),
     "output_path": BASE_DIR / "output"
 }
