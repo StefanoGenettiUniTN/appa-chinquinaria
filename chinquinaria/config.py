@@ -21,5 +21,6 @@ CONFIG = {
     "llm_type": "proprietary",  # "open_source" or "proprietary"
     "endpoint": "https://models.inference.ai.azure.com",
     "token": os.environ.get('GITHUB_TOKEN'),
+    "recycle_window_essays": False,
     "output_path": BASE_DIR / "output"
 }

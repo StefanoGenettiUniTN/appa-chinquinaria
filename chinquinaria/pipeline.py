@@ -65,17 +65,25 @@ def run_pipeline():
             window_index=i
         )
 
-        shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
-        summary_text = summarize_shap(shap_text)
+        if CONFIG["recycle_window_essays"]:
+            summary_file_name = f"llm_summary_window_{i}.txt"
+            summary_file_path = CONFIG["output_path"] / summary_file_name
+            summary_file = open(summary_file_path, "r")
+            summary_text = summary_file.read()
+            summary_file.close()
+            logger.info(f"Recycled LLM summary for window {i} from {summary_file_path}")
+        else:
+            shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
+            summary_text = summarize_shap(shap_text)
 
-        if CONFIG["debug"]:
-            logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
+            if CONFIG["debug"]:
+                logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
 
-        summary_file_name = f"llm_summary_window_{i}.txt"
-        summary_file_path = CONFIG["output_path"] / summary_file_name
-        summary_file = open(summary_file_path, "w")
-        summary_file.write(summary_text)
-        summary_file.close()
+            summary_file_name = f"llm_summary_window_{i}.txt"
+            summary_file_path = CONFIG["output_path"] / summary_file_name
+            summary_file = open(summary_file_path, "w")
+            summary_file.write(summary_text)
+            summary_file.close()
 
         window_summaries.append(summary_text)
 
