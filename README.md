@@ -138,6 +138,12 @@ Follow these steps to commit your contributions:
    key: YOUR_API_KEY
    ```
 
+5. **Create a `.env` file** (required for proprietary LLM use in `chinquinaria.pipeline`)
+
+   If you plan to usa a proprietary LLM (GPT-4.1), you need to provide an access token. In the root directory of the project, create a file named `.env` containing:
+   ```
+   GITHUB_TOKEN=your_personal_access_token_here 
+   ```
 ## 📖 Usage
 
 ### Execute complete pipeline
