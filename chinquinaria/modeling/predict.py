@@ -196,7 +196,6 @@ def predict_windows(model, window_df: pd.DataFrame):
 
     # Execute the model prediction =============================================
     preds = model.predict(x_test)
-    window_df["predicted_PM10"] = preds
 
     # Evaluate predictions on the window =======================================
     testing_window_performance = evaluate_predictions(y_test, preds)

@@ -14,6 +14,9 @@ class XGBoostModel:
     def predict(self, X):
         return self.model.predict(X)
 
+    def __call__(self, X):
+        return self.predict(X)
+
     def save(self, path):
         self.model.save_model(path)
 

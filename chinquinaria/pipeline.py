@@ -13,6 +13,7 @@ from chinquinaria.explainability.shap import generate_shap_summary
 from chinquinaria.llm_reporting.llm import summarize_shap
 from chinquinaria.llm_reporting.llm import generate_final_essay
 from chinquinaria.utils.logger import get_logger
+from chinquinaria.utils.evaluation import plot_feature_importance
 
 logger = get_logger(__name__)
 
@@ -54,7 +55,16 @@ def run_pipeline():
     for i, window in enumerate(windows, start=1):
         logger.info(f"Processing window {i}/{len(windows)}...")
         preds_df: pd.DataFrame = predict_windows(model, window)
-        #shap_res = run_shap(model, preds_df)
+        shap_res = run_shap(model, preds_df)
+        
+        if CONFIG["debug"]:
+            logger.debug(f"SHAP results for window {i}: {shap_res}")
+
+        plot_feature_importance(
+            top_features=shap_res["top_features"],
+            window_index=i
+        )
+
         #shap_text = generate_shap_summary(shap_res, i)
         #summary_text = summarize_shap(shap_text, CONFIG["llm_type"])
         #window_summaries.append(summary_text)

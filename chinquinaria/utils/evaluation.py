@@ -3,6 +3,7 @@ Evaluation metrics.
 """
 import pandas as pd
 import matplotlib.pyplot as plt
+from typing import Dict, List, Set, Tuple
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 from chinquinaria.config import CONFIG
 
@@ -43,3 +44,18 @@ def plot_evaluation(stazioni:pd.Series, x_date: pd.Series, y_true:pd.Series, y_p
             plt.close()
 
         print(f"Saved plot for '{staz}' in {file_path}")
+
+def plot_feature_importance(top_features: Dict[str, float], window_index: int):
+    """Plot feature importance as a horizontal bar chart and save to disk."""
+    plt.figure(figsize=(10, 6))
+    plt.barh(list(top_features.keys()), list(top_features.values()), color='skyblue')
+    plt.xlabel("Mean |SHAP| Value", fontsize=12)
+    plt.title(f"Feature Importance - Window {window_index}")
+    plt.tight_layout()
+
+    file_name = f"feature_importance_window_{window_index}.png"
+    file_path = CONFIG["output_path"] / file_name
+    plt.savefig(file_path)
+    plt.close()
+
+    print(f"Saved feature importance plot for window {window_index} in {file_path}")
