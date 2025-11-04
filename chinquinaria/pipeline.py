@@ -71,15 +71,22 @@ def run_pipeline():
         if CONFIG["debug"]:
             logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
 
+        summary_file_name = f"llm_summary_window_{i}.txt"
+        summary_file_path = CONFIG["output_path"] / summary_file_name
+        summary_file = open(summary_file_path, "w")
+        summary_file.write(summary_text)
+        summary_file.close()
+
         window_summaries.append(summary_text)
 
-    exit(0)
-
     logger.info("Generating final report...")
-    final_report = generate_final_essay(window_summaries, CONFIG["llm_type"])
+    final_report = generate_final_essay(window_summaries)
 
-    with open(CONFIG["output_path"], "w") as f:
-        f.write(final_report)
+    final_report_file_name = "final_report.txt"
+    final_report_file_path = CONFIG["output_path"] / final_report_file_name
+    final_report_file = open(final_report_file_path, "w")
+    final_report_file.write(final_report)
+    final_report_file.close()
 
     logger.info(f"Pipeline completed! Report saved to {CONFIG['output_path']}")
 

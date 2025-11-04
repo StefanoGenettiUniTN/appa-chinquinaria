@@ -12,8 +12,6 @@ def generate_summary_open_source(prompt, model_name="mistralai/Mistral-7B-Instru
     return result[0]["generated_text"]
 
 def generate_summary_proprietary(prompt, model="gpt-4.1"):
-    print("endpoint:", CONFIG["endpoint"])
-    print("token:", CONFIG["token"])
     client = openai.OpenAI(base_url=CONFIG["endpoint"], api_key=CONFIG["token"])
     completion = client.chat.completions.create(
         model=model,
@@ -45,4 +43,12 @@ def generate_final_essay(window_summaries) -> str:
         f"Please write a coherent essay summarizing key findings, "
         f"trends, and implications for air quality management."
     )
-    return summarize_shap(final_prompt, llm_type=llm_type)
+    
+    if CONFIG["debug"]:
+        print("LLM Prompt:")
+        print(final_prompt)
+
+    if CONFIG["llm_type"] == "open_source":
+        return generate_summary_open_source(final_prompt)
+    else:
+        return generate_summary_proprietary(final_prompt)
