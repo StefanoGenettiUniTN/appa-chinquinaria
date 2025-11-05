@@ -18,7 +18,7 @@ CONFIG = {
     "end_testing_date": "2025-01-01",
     "window_size_months": 1,
     "model_type": "xgboost",
-    "llm_type": "proprietary",  # "open_source" or "proprietary"
+    "llm_type": "fake",  # "open_source" or "proprietary" or "fake"
     "endpoint": "https://models.inference.ai.azure.com",
     "token": os.environ.get('GITHUB_TOKEN'),
     "recycle_window_essays": False,

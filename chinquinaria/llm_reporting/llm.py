@@ -32,8 +32,12 @@ def summarize_shap(shap_summary: str) -> str:
 
     if CONFIG["llm_type"] == "open_source":
         return generate_summary_open_source(prompt)
-    else:
+    elif CONFIG["llm_type"] == "proprietary":
         return generate_summary_proprietary(prompt)
+    elif CONFIG["llm_type"] == "fake":
+        return shap_summary
+    else:
+        raise ValueError(f"Unknown LLM type: {CONFIG['llm_type']}")
 
 def generate_final_essay(window_summaries) -> str:
     combined_text = "\n\n".join(window_summaries)
@@ -50,5 +54,9 @@ def generate_final_essay(window_summaries) -> str:
 
     if CONFIG["llm_type"] == "open_source":
         return generate_summary_open_source(final_prompt)
-    else:
+    elif CONFIG["llm_type"] == "proprietary":
         return generate_summary_proprietary(final_prompt)
+    elif CONFIG["llm_type"] == "fake":
+        return final_prompt
+    else:
+        raise ValueError(f"Unknown LLM type: {CONFIG['llm_type']}")
