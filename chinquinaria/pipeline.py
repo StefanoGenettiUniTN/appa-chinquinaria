@@ -74,6 +74,14 @@ def run_pipeline():
             logger.info(f"Recycled LLM summary for window {i} from {summary_file_path}")
         else:
             shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
+
+            # save shap_text on file
+            shap_file_name = f"shap_summary_window_{i}.txt"
+            shap_file_path = CONFIG["output_path"] / shap_file_name
+            shap_file = open(shap_file_path, "w")
+            shap_file.write(shap_text)
+            shap_file.close()
+
             summary_text = summarize_shap(shap_text)
 
             if CONFIG["debug"]:
