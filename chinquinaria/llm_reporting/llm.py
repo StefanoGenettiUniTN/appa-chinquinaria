@@ -7,8 +7,8 @@ from transformers import pipeline
 from chinquinaria.config import CONFIG
 
 def generate_summary_open_source(prompt, model_name="mistralai/Mistral-7B-Instruct-v0.2"):
-    summarizer = pipeline("text-generation", model=model_name)
-    result = summarizer(prompt, max_new_tokens=300, do_sample=True)
+    summarizer = pipeline("text-generation", model=model_name, device_map="auto")
+    result = summarizer(prompt, do_sample=True, max_new_tokens=512)
     return result[0]["generated_text"]
 
 def generate_summary_proprietary(prompt, model="gpt-4.1"):
