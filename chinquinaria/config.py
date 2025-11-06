@@ -19,6 +19,8 @@ CONFIG = {
     "window_size_months": 1,
     "model_type": "xgboost",
     "llm_type": "fake",  # "open_source" or "proprietary" or "fake"
+    "llm_prompt_variant_shap": "v2",  # "v1" | "v2" | "v3"
+    "llm_prompt_variant_final": "v2",  # "v1" | "v2" | "v3"
     "endpoint": "https://models.inference.ai.azure.com",
     "token": os.environ.get('GITHUB_TOKEN'),
     "recycle_window_essays": False,
