@@ -234,6 +234,17 @@ def train_model(train_df: pd.DataFrame):
 
         # Plot training predictions
         plot_evaluation(train_df["stazione"], train_df["data"], y_train, y_pred)
+
+        # save training predictions to csv
+        training_predictions_df = pd.DataFrame({
+            "model_type": CONFIG["model_type"],
+            "stazione": train_df["stazione"],
+            "data": train_df["data"],
+            "actual": y_train,
+            "predicted": y_pred
+        })
+        training_predictions_file_path = CONFIG["output_path"] / "training_predictions.csv"
+        training_predictions_df.to_csv(training_predictions_file_path, index=False)
     else:
         raise ValueError(f"Unsupported model type: {CONFIG['model_type']}")
 
