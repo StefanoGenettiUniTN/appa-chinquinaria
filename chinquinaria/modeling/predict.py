@@ -2,6 +2,7 @@
 Perform model inference on given test windows.
 """
 import pandas as pd
+import time
 from chinquinaria.config import CONFIG
 from chinquinaria.utils.logger import get_logger
 from chinquinaria.utils.evaluation import evaluate_predictions, plot_evaluation
@@ -195,13 +196,40 @@ def predict_windows(model, window_df: pd.DataFrame):
         logger.debug(f"\n+y_test:\n{y_test.head()}")
 
     # Execute the model prediction =============================================
+    start_time = time.time()
     preds = model.predict(x_test)
+    end_time = time.time()
 
     # Evaluate predictions on the window =======================================
     testing_window_performance = evaluate_predictions(y_test, preds)
     logger.info(f"Testing window performance: {testing_window_performance}")
 
+    # save window performance to csv using pandas with columns: model_type, mae, rmse, dtw, execution_time
+    performance_df = pd.DataFrame([{
+        "model_type": CONFIG["model_type"],
+        "window_start_date": window_df["data"].min(),
+        "window_end_date": window_df["data"].max(),
+        "mae": testing_window_performance["mae"],
+        "rmse": testing_window_performance["rmse"],
+        "dtw": testing_window_performance["dtw"],
+        "execution_time_seconds": round(end_time - start_time, 3)
+    }])
+    performance_file_path = CONFIG["output_path"] / f"performance_window_{window_df['data'].min().strftime('%Y%m%d')}_to_{window_df['data'].max().strftime('%Y%m%d')}.csv"
+    performance_df.to_csv(performance_file_path, index=False)
+
     # Plot evaluation for the window ===========================================
     plot_evaluation(window_df["stazione"], window_df["data"], y_test, preds)
+
+    # save predictions to csv
+    predictions_df = pd.DataFrame({
+        "model_type": CONFIG["model_type"],
+        "stazione": window_df["stazione"],
+        "data": window_df["data"],
+        "actual": y_test,
+        "predicted": preds
+    })
+    predictions_file_name = f"predictions_window_{window_df['data'].min().strftime('%Y%m%d')}_to_{window_df['data'].max().strftime('%Y%m%d')}.csv"
+    predictions_file_path = CONFIG["output_path"] / predictions_file_name
+    predictions_df.to_csv(predictions_file_path, index=False)
 
     return window_df
