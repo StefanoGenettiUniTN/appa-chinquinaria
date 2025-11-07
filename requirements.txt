@@ -18,3 +18,4 @@ scikit-learn
 shap
 torch
 python-dotenv
+tslearn

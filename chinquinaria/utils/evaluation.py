@@ -5,12 +5,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Set, Tuple
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from tslearn.metrics import dtw as dtw_distance
 from chinquinaria.config import CONFIG
 
 def evaluate_predictions(y_true, y_pred):
     return {
         "mae": mean_absolute_error(y_true, y_pred),
-        "rmse": root_mean_squared_error(y_true, y_pred)
+        "rmse": root_mean_squared_error(y_true, y_pred),
+        "dtw": dtw_distance(y_true, y_pred)
     }
 
 def plot_evaluation(stazioni:pd.Series, x_date: pd.Series, y_true:pd.Series, y_pred:pd.Series):

@@ -2,6 +2,7 @@
 Train the selected model using the training dataset.
 """
 import pandas as pd
+import time
 from chinquinaria.modeling.xgboost_model import XGBoostModel
 from chinquinaria.utils.file_io import save_pickle
 from chinquinaria.config import CONFIG
@@ -208,15 +209,28 @@ def train_model(train_df: pd.DataFrame):
         # Model training =======================================================
         logger.info(f"Training {CONFIG['model_type']} model...")
         model = XGBoostModel(n_estimators=200, learning_rate=0.05)
+        start_time = time.time()
         model.train(x_train, y_train)
+        end_time = time.time()
         save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
-        logger.info(f"Model training DONE and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
         
         # Evaluate training performance ========================================
         logger.info("Evaluating training performance...")
         y_pred = model.predict(x_train)
         training_performance = evaluate_predictions(y_train, y_pred)
         logger.info("Training performance: %s", training_performance)
+
+        # save training performance to csv using pandas with columns: model_type, mae, rmse, dtw, execution_time
+        performance_df = pd.DataFrame([{
+            "model_type": CONFIG["model_type"],
+            "mae": training_performance["mae"],
+            "rmse": training_performance["rmse"],
+            "dtw": training_performance["dtw"],
+            "execution_time_seconds": round(end_time - start_time, 3)
+        }])
+        performance_file_path = CONFIG["output_path"] / "training_performance.csv"
+        performance_df.to_csv(performance_file_path, index=False)
 
         # Plot training predictions
         plot_evaluation(train_df["stazione"], train_df["data"], y_train, y_pred)
