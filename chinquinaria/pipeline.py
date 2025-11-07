@@ -65,6 +65,18 @@ def run_pipeline():
             window_index=i
         )
 
+        # save shap results to csv with columns: window_id, feature, mean_abs_shap_value
+        mean_shap = shap_res["mean_shap"]
+        shap_df = pd.DataFrame({
+            "model_type": CONFIG["model_type"],
+            "window_id": i,
+            "feature": mean_shap.index,
+            "mean_abs_shap_value": mean_shap.values
+        })
+        shap_file_name = f"shap_values_window_{i}.csv"
+        shap_file_path = CONFIG["output_path"] / shap_file_name
+        shap_df.to_csv(shap_file_path, index=False)
+
         if CONFIG["recycle_window_essays"]:
             summary_file_name = f"llm_summary_window_{i}.txt"
             summary_file_path = CONFIG["output_path"] / summary_file_name
