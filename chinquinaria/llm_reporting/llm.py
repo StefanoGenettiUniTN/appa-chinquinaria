@@ -5,7 +5,7 @@ LLM Reporting Module
 import openai
 from transformers import pipeline
 from chinquinaria.config import CONFIG
-from .prompts import build_shap_prompt, build_final_summary_prompt
+from chinquinaria.llm_reporting.prompts import build_shap_prompt, build_final_summary_prompt
 
 def generate_summary_open_source(prompt, model_name="mistralai/Mistral-7B-Instruct-v0.2"):
     summarizer = pipeline("text-generation", model=model_name, device_map="auto")
