@@ -4,6 +4,7 @@ Train the selected model using the training dataset.
 import pandas as pd
 import time
 from chinquinaria.modeling.xgboost_model import XGBoostModel
+from chinquinaria.modeling.lightgbm import LightGBMModel
 from chinquinaria.modeling.mlp import TorchMLPModel
 from chinquinaria.utils.file_io import save_pickle
 from chinquinaria.config import CONFIG
@@ -214,6 +215,14 @@ def train_model(train_df: pd.DataFrame):
     if CONFIG["model_type"] == "xgboost":
         logger.info(f"Training {CONFIG['model_type']} model...")
         model = XGBoostModel(n_estimators=200, learning_rate=0.05)
+        start_time = time.time()
+        model.train(x_train, y_train)
+        end_time = time.time()
+        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+    elif CONFIG["model_type"] == "lightgbm":
+        logger.info(f"Training {CONFIG['model_type']} model...")
+        model = LightGBMModel(n_estimators=200, learning_rate=0.05)
         start_time = time.time()
         model.train(x_train, y_train)
         end_time = time.time()

@@ -20,3 +20,4 @@ shap
 torch
 python-dotenv
 tslearn
+lightgbm
