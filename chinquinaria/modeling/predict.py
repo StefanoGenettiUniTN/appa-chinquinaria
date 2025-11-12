@@ -191,6 +191,10 @@ def predict_windows(model, window_df: pd.DataFrame):
                                         "veneto_ma_18_unità di misura"])
     y_test = window_df["valore"]
 
+    # temporary fix for missing values
+    x_test = x_test.fillna(0)
+    y_test = y_test.fillna(y_test.mean())
+
     if CONFIG["debug"]:
         logger.debug(f"\n+x_test:\n{x_test.head()}")
         logger.debug(f"\n+y_test:\n{y_test.head()}")

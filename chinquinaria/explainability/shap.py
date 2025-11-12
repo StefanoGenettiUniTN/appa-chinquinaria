@@ -187,6 +187,9 @@ def run_shap(model, window_df: pd.DataFrame) -> Dict[str, List[float]]:
                                         "veneto_ma_18_max_lat",
                                         "veneto_ma_18_max_lon",
                                         "veneto_ma_18_unità di misura"])
+    
+    # temprary fix for missing values
+    x_shap = x_shap.fillna(0)
 
     explainer: shap.Explainer = shap.Explainer(model, x_shap)
     shap_values: shap.Explanation = explainer(x_shap)
