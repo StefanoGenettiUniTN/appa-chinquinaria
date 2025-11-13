@@ -11,6 +11,7 @@ from chinquinaria.config import CONFIG
 from chinquinaria.utils.evaluation import evaluate_predictions
 from chinquinaria.utils.evaluation import plot_evaluation
 from chinquinaria.utils.logger import get_logger
+from chinquinaria.modeling.random_forest import RandomForestModel
 
 logger = get_logger(__name__)
 
@@ -231,6 +232,14 @@ def train_model(train_df: pd.DataFrame):
     elif CONFIG["model_type"] == "mlp":
         logger.info(f"Training {CONFIG['model_type']} model...")
         model = TorchMLPModel(input_dim=x_train.shape[1])
+        start_time = time.time()
+        model.train(x_train, y_train)
+        end_time = time.time()
+        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+    elif CONFIG["model_type"] == "random_forest":
+        logger.info(f"Training {CONFIG['model_type']} model...")
+        model = RandomForestModel(n_estimators=200)
         start_time = time.time()
         model.train(x_train, y_train)
         end_time = time.time()

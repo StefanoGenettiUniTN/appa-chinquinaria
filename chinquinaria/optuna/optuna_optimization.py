@@ -14,6 +14,7 @@ from chinquinaria.modeling.xgboost_model import XGBoostModel
 from chinquinaria.modeling.lightgbm import LightGBMModel
 from chinquinaria.modeling.mlp import MLPModel
 from chinquinaria.modeling.mlp import TorchMLPModel
+from chinquinaria.modeling.random_forest import RandomForestModel
 
 logger = get_logger(__name__)
 
@@ -23,7 +24,11 @@ def objective(trial: optuna.trial.Trial, x: pd.DataFrame, y: pd.Series):
     )
 
     if CONFIG["model_type"] == "random_forest":
-        print("not implemented yet")
+        n_estimators = trial.suggest_int("n_estimators", 50, 500)
+        max_depth = trial.suggest_int("max_depth", 3, 20)
+        model = RandomForestModel(n_estimators=n_estimators, max_depth=max_depth)
+        model.train(x_train, y_train)
+        preds = model.predict(x_valid)
     elif CONFIG["model_type"] == "xgboost":
         params = {
             "n_estimators": trial.suggest_int("n_estimators", 50, 500),
