@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONFIG = {
     "debug": True,
-    "dataset": "v1_day",
+    "dataset": "merged_appa_eea_by_proximity_v4", # v1_day or merged_appa_eea_by_proximity_v4
     "start_training_date": "2013-01-01",
     "end_training_date": "2024-01-01",
     "start_testing_date": "2024-01-01",
