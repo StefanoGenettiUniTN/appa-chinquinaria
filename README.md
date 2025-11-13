@@ -2,62 +2,140 @@
 
 ## Overview
 
-ETL pipeline integrating meteorological data from MeteoTrentino and air quality (PM10) measurements from APPA monitoring stations across Trentino, Italy.
+ETL pipeline integrating meteorological data from MeteoTrentino and air quality (PM10) measurements from APPA monitoring stations across Trentino, Italy. The pipeline also incorporates European Environment Agency (EEA) data matched by geographic proximity.
 
 ## Project Structure
 
 ```
-ETL_appa-meteoTrentino_pipeline.py    # Process and aggregate APPA + Meteo data
-ETL_eea_pipeline.py                   # Process EEA European air quality data
-merge_datasets.py                     # Merge APPA-Meteo with EEA data
-run_pipeline.sh                       # Execute all 3 scripts with logging
+src/
+  ├── merge_appa_meteo_trentino.py      # APPA + MeteoTrentino integration
+  ├── filter_eea_by_proximity.py        # EEA proximity filtering
+  ├── merge_datasets_by_proximity.py    # APPA-EEA proximity merge
+  └── PostProcessing.py                 # Data quality & cleaning utilities
+
+run_pipeline.sh                         # Execute all 3 scripts with logging
 
 input/
-  ├── appa_data/                      # APPA air quality measurements
-  ├── eea_data/                       # European Environment Agency data
-  └── meteo-trentino-data/            # Weather station files
+  ├── appa_data/                        # APPA air quality measurements
+  │   ├── appa_data.csv
+  │   ├── appa_metadata.csv
+  │   └── statJson.csv
+  ├── eea_data/                         # European Environment Agency data
+  │   └── eea.csv
+  └── meteo-trentino-data/              # Weather station files (T0010, T0118, etc.)
 
 output/
   ├── historical_weather_airPM_trentino.csv      # APPA + Meteo combined
-  ├── eea_data_aggregated.csv                    # EEA processed data
-  ├── merged_appa_eea.csv                        # Final merged dataset
-  ├── ETL_appa-meteoTrentino_pipeline_output.txt # Script logs
-  ├── ETL_eea_pipeline_output.txt
-  └── merge_datasets_output.txt
+  ├── eea_filtered_by_proximity.csv              # EEA stations near Trentino
+  ├── trentino_eea_proximity_mapping.csv         # Station proximity mapping
+  ├── merged_appa_eea_by_proximity.csv           # APPA-EEA merged by proximity
+  ├── merged_appa_eea_cleaned.csv                # Post-processed clean dataset
+  ├── appa_meteo_merge_pipeline_output.txt       # Pipeline logs
+  ├── eea_proximity_filter_pipeline_output.txt
+  └── merge_appa_eea_proximity_output.txt
+
+notebooks/
+  ├── inspect_merged_dataset.ipynb      # Data quality analysis & visualization
+  └── mapping_visualization.ipynb       # Station mapping
+
+docs/
+  └── Explaining_meteo_trentino_features.md
 ```
 
 ## Key Features
 
-- **3-stage ETL pipeline**: APPA processing → EEA processing → Dataset merge
-- **Spatial-temporal matching**: Pairs air quality with weather stations
-- **Validated data**: Annale Idrologico (1923-2025) + Recent measurements (1990-2025)
+- **3-stage ETL pipeline**: APPA-Meteo merge → EEA filtering → Proximity-based integration
+- **Proximity-based matching**: Pairs APPA stations with nearest EEA stations using Haversine distance
+- **Data quality controls**: 
+  - NaN value analysis and filtering
+  - Negative value detection and removal
+  - Duplicate row detection
 - **Automated logging**: All outputs saved to separate text files
-- **Python scripts** with pandas, numpy for data manipulation
+- **Interactive analysis**: Jupyter notebooks with Folium maps and quality reports
 
 ## Running the Pipeline
 
 ```bash
-# Execute all scripts with logging
+# Execute complete pipeline with logging
 ./run_pipeline.sh
 
 # Or run individually
-python ETL_appa-meteoTrentino_pipeline.py
-python ETL_eea_pipeline.py
-python merge_datasets.py
+python src/merge_appa_meteo_trentino.py
+python src/filter_eea_by_proximity.py
+python src/merge_datasets_by_proximity.py
 ```
+
+## Pipeline Stages
+
+### 1. APPA-MeteoTrentino Merge
+**Script:** `src/merge_appa_meteo_trentino.py`
+
+- Integrates APPA air quality measurements with MeteoTrentino weather data
+- Temporal alignment of station readings
+- Output: `historical_weather_airPM_trentino.csv`
+
+### 2. EEA Proximity Filter
+**Script:** `src/filter_eea_by_proximity.py`
+
+- Filters European air quality stations by proximity to Trentino region
+- Calculates Haversine distances between stations
+- Output: `eea_filtered_by_proximity.csv`, `trentino_eea_proximity_mapping.csv`
+
+### 3. Proximity-Based Merge
+**Script:** `src/merge_datasets_by_proximity.py`
+
+- Merges APPA-Meteo data with nearest EEA stations
+- Geographic and temporal data integration
+- Output: `merged_appa_eea_by_proximity.csv`
+
+### 4. Post-Processing (Optional)
+**Script:** `src/PostProcessing.py`
+
+- Data quality analysis (NaN, negatives, duplicates)
+- Column/station filtering based on quality thresholds
+- Output: `merged_appa_eea_cleaned.csv`
+
+## Data Quality Analysis
+
+Use the inspection notebook for comprehensive quality checks:
+
+```bash
+jupyter notebook notebooks/inspect_merged_dataset.ipynb
+```
+
+Features:
+- Missing value analysis
+- Negative value detection
+- Station location visualization with Folium
+- Data quality scoring
 
 ## Output Files
 
-| File | Description | Records |
+| File | Description | Purpose |
 |------|-------------|---------|
-| `historical_weather_airPM_trentino.csv` | APPA + Meteo Trentino merged | ~2.8M |
-| `eea_data_aggregated.csv` | European air quality aggregated | ~1.6M |
-| `merged_appa_eea.csv` | Complete dataset APPA-Meteo-EEA | Final merged |
+| `historical_weather_airPM_trentino.csv` | APPA + MeteoTrentino merged | Weather-AQ integration |
+| `eea_filtered_by_proximity.csv` | EEA stations near Trentino | Proximity-filtered EEA data |
+| `trentino_eea_proximity_mapping.csv` | Station proximity mappings | Geographic relationships |
+| `merged_appa_eea_by_proximity.csv` | Complete APPA-EEA dataset | Full merged data |
+| `merged_appa_eea_cleaned.csv` | Quality-controlled dataset | Production-ready data |
 
 ## Dependencies
 
-pandas, numpy, matplotlib, seaborn
+```
+pandas
+numpy
+matplotlib
+seaborn
+folium
+```
+
+Install with:
+```bash
+pip install -r requirements.txt
+```
 
 ## Documentation
 
-- `Explaining_meteo_trentino_features.md` - Feature guide & data quality notes
+- `docs/Explaining_meteo_trentino_features.md` - Feature guide & data quality notes
+- `notebooks/inspect_merged_dataset.ipynb` - Interactive data quality analysis
+- `notebooks/mapping_visualization.ipynb` - Station location mapping
