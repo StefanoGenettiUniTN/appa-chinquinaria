@@ -21,3 +21,6 @@ torch
 python-dotenv
 tslearn
 lightgbm
+optuna
+plotly
+kaleido
