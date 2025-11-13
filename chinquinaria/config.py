@@ -11,13 +11,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 CONFIG = {
     "debug": True,
-    "dataset": "v1_day",
+    "dataset": "merged_appa_eea_by_proximity_v4", # v1_day or merged_appa_eea_by_proximity_v4
     "start_training_date": "2013-01-01",
     "end_training_date": "2024-01-01",
     "start_testing_date": "2024-01-01",
     "end_testing_date": "2025-01-01",
     "window_size_months": 1,
-    "model_type": "mlp", # "xgboost" or "lightgbm" or "mlp" or "random_forest" (not implemented) or "eldt" (not implemented) or "lstm" (not implemented)
+    "model_type": "xgboost", # "xgboost" or "lightgbm" or "mlp" or "random_forest" (not implemented) or "eldt" (not implemented) or "lstm" (not implemented)
     "llm_type": "fake",  # "open_source" or "proprietary" or "fake"
     "endpoint": "https://models.inference.ai.azure.com",
     "token": os.environ.get('GITHUB_TOKEN'),
