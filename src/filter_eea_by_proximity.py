@@ -20,7 +20,7 @@ OUTPUT_DIR_PATH = "./output"
 TRENTINO_DATA_PATH = "./output/historical_weather_airPM_trentino.csv"
 
 # Number of closest EEA stations to keep for each Trentino station (easily modifiable parameter)
-N_CLOSEST_STATIONS = 10
+N_CLOSEST_STATIONS = 30
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -427,6 +427,84 @@ def filter_eea_dataset(df_eea: pd.DataFrame,
     logging.info(f"Date range: {df_filtered['Data'].min()} to {df_filtered['Data'].max()}")
     
     return df_filtered.reset_index(drop=True)
+
+
+def drop_columns_with_high_nan(df: pd.DataFrame, threshold: float = 0.05) -> pd.DataFrame:
+    """
+    Drop columns that have more than a specified percentage of NaN values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        threshold (float): Maximum allowed fraction of NaN values (default 0.05 = 5%)
+    
+    Returns:
+        pd.DataFrame: DataFrame with high-NaN columns removed
+    """
+    logging.info(f"Checking for columns with more than {threshold*100}% NaN values")
+    
+    initial_columns = df.shape[1]
+    nan_percentages = df.isnull().sum() / len(df)
+    
+    # Find columns to drop
+    columns_to_drop = nan_percentages[nan_percentages > threshold].index.tolist()
+    
+    if columns_to_drop:
+        logging.warning(f"Dropping {len(columns_to_drop)} columns with >{threshold*100}% NaN values:")
+        for col in columns_to_drop:
+            nan_pct = nan_percentages[col] * 100
+            logging.warning(f"  - '{col}': {nan_pct:.2f}% NaN")
+        
+        df = df.drop(columns=columns_to_drop)
+        logging.info(f"Columns reduced from {initial_columns} to {df.shape[1]}")
+    else:
+        logging.info("No columns found with excessive NaN values")
+    
+    return df
+
+
+def drop_stations_with_many_negatives(df: pd.DataFrame, 
+                                       station_col: str = 'Stazione',
+                                       value_col: str = 'Valore',
+                                       max_negatives: int = 300) -> pd.DataFrame:
+    """
+    Drop stations that have more than a specified number of negative values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame with station data
+        station_col (str): Name of the station identifier column (default 'Stazione')
+        value_col (str): Name of the value column to check (default 'Valore')
+        max_negatives (int): Maximum allowed negative values per station (default 300)
+    
+    Returns:
+        pd.DataFrame: DataFrame with problematic stations removed
+    """
+    logging.info(f"Checking for stations with more than {max_negatives} negative values")
+    
+    initial_stations = df[station_col].nunique()
+    initial_rows = len(df)
+    
+    # Count negative values per station
+    negative_counts = df[df[value_col] < 0].groupby(station_col).size()
+    
+    # Find stations to drop
+    stations_to_drop = negative_counts[negative_counts > max_negatives].index.tolist()
+    
+    if stations_to_drop:
+        logging.warning(f"Dropping {len(stations_to_drop)} stations with >{max_negatives} negative values:")
+        for station in stations_to_drop:
+            neg_count = negative_counts[station]
+            logging.warning(f"  - '{station}': {neg_count} negative values")
+        
+        df = df[~df[station_col].isin(stations_to_drop)]
+        final_stations = df[station_col].nunique()
+        final_rows = len(df)
+        
+        logging.info(f"Stations reduced from {initial_stations} to {final_stations}")
+        logging.info(f"Rows reduced from {initial_rows} to {final_rows}")
+    else:
+        logging.info("No stations found with excessive negative values")
+    
+    return df.reset_index(drop=True)
 
 
 def save_proximity_mapping(proximity_mapping: Dict[str, List[str]], 
