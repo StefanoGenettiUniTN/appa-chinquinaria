@@ -4,8 +4,8 @@ Script to create a curated PM10 dataset from the raw merged CSV.
 This script performs the following operations:
 1. Drops station Rio Novo (502726) - too many missing years and far from other stations
 2. Copies missing years of TV S Agnese (502612) from closest station TV Lancieri (502608)
-3. Drops all data before 2012 (keeps 2012 onwards)
-4. Interpolates 1 missing hour in VE Tagliamento (502720) in 2012
+3. Drops all data before 2014 (keeps 2014 onwards)
+4. Interpolates 1 missing hour in VE Tagliamento (502720) in 2014
 5. Interpolates all gaps shorter than 4 hours using linear interpolation
 6. Final pass: interpolates remaining gaps shorter than 2 hours
 7. Saves the curated dataset with an informative filename
@@ -227,59 +227,59 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
         print(f"   No missing years found - TV S Agnese already has all years")
     
     # ============================================================================
-    # Step 4: Drop data before 2012 (keep 2012 onwards)
+    # Step 4: Drop data before 2014 (keep 2014 onwards)
     # ============================================================================
-    print(f"\n4. Dropping data before 2012 (keeping 2012 onwards)...")
+    print(f"\n4. Dropping data before 2014 (keeping 2014 onwards)...")
     rows_before = len(df)
     df['datetime'] = pd.to_datetime(df['datetime'])
-    cutoff_date = pd.Timestamp("2012-01-01 00:00:00")
+    cutoff_date = pd.Timestamp("2014-01-01 00:00:00")
     df = df[df['datetime'] >= cutoff_date].copy()
     rows_after = len(df)
     print(f"   Dropped {rows_before - rows_after:,} rows")
     print(f"   New date range: {df['datetime'].min()} to {df['datetime'].max()}")
     
     # ============================================================================
-    # Step 5: Interpolate 1 missing hour in VE Tagliamento (502720) in 2012
+    # Step 5: Interpolate 1 missing hour in VE Tagliamento (502720) in 2014
     # ============================================================================
-    print(f"\n5. Interpolating missing hour in VE Tagliamento (502720) in 2012...")
+    print(f"\n5. Interpolating missing hour in VE Tagliamento (502720) in 2014...")
     
     ve_tagliamento_df = df[df['station_code'] == 502720].copy()
-    ve_tagliamento_2012 = ve_tagliamento_df[
-        pd.to_datetime(ve_tagliamento_df['datetime']).dt.year == 2012
+    ve_tagliamento_2014 = ve_tagliamento_df[
+        pd.to_datetime(ve_tagliamento_df['datetime']).dt.year == 2014
     ].copy()
     
-    # Create expected hourly series for 2012
-    year_2012_start = pd.Timestamp("2012-01-01 00:00:00")
-    year_2012_end = pd.Timestamp("2012-12-31 23:00:00")
-    expected_2012_hours = pd.date_range(start=year_2012_start, end=year_2012_end, freq='h')
+    # Create expected hourly series for 2014
+    year_2014_start = pd.Timestamp("2014-01-01 00:00:00")
+    year_2014_end = pd.Timestamp("2014-12-31 23:00:00")
+    expected_2014_hours = pd.date_range(start=year_2014_start, end=year_2014_end, freq='h')
     
     # Find missing hour(s)
-    actual_2012_times = set(pd.to_datetime(ve_tagliamento_2012['datetime']))
-    missing_2012_hours = [t for t in expected_2012_hours if t not in actual_2012_times]
+    actual_2014_times = set(pd.to_datetime(ve_tagliamento_2014['datetime']))
+    missing_2014_hours = [t for t in expected_2014_hours if t not in actual_2014_times]
     
-    if missing_2012_hours:
-        print(f"   Found {len(missing_2012_hours)} missing hour(s) in 2012")
+    if missing_2014_hours:
+        print(f"   Found {len(missing_2014_hours)} missing hour(s) in 2014")
         
-        # Create complete 2012 series for VE Tagliamento
-        complete_2012_df = pd.DataFrame({'datetime': expected_2012_hours})
-        complete_2012_df = complete_2012_df.merge(
-            ve_tagliamento_2012[['datetime', 'pm10']],
+        # Create complete 2014 series for VE Tagliamento
+        complete_2014_df = pd.DataFrame({'datetime': expected_2014_hours})
+        complete_2014_df = complete_2014_df.merge(
+            ve_tagliamento_2014[['datetime', 'pm10']],
             on='datetime',
             how='left'
         )
-        complete_2012_df['station_code'] = 502720
-        complete_2012_df['station_name'] = 'VE Tagliamento'
+        complete_2014_df['station_code'] = 502720
+        complete_2014_df['station_name'] = 'VE Tagliamento'
         
         # Interpolate the missing hour
-        complete_2012_df['pm10'] = complete_2012_df['pm10'].interpolate(method='linear', limit_direction='both')
+        complete_2014_df['pm10'] = complete_2014_df['pm10'].interpolate(method='linear', limit_direction='both')
         
-        # Remove old 2012 data and add interpolated version
+        # Remove old 2014 data and add interpolated version
         df = df[~((df['station_code'] == 502720) & 
-                  (pd.to_datetime(df['datetime']).dt.year == 2012))].copy()
-        df = pd.concat([df, complete_2012_df], ignore_index=True)
-        print(f"   Interpolated {len(missing_2012_hours)} missing hour(s)")
+                  (pd.to_datetime(df['datetime']).dt.year == 2014))].copy()
+        df = pd.concat([df, complete_2014_df], ignore_index=True)
+        print(f"   Interpolated {len(missing_2014_hours)} missing hour(s)")
     else:
-        print(f"   No missing hours found in 2012 for VE Tagliamento")
+        print(f"   No missing hours found in 2014 for VE Tagliamento")
     
     # ============================================================================
     # Step 6: Interpolate all gaps shorter than max_gap_hours
