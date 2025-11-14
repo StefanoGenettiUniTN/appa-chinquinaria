@@ -20,6 +20,7 @@ shap
 torch
 python-dotenv
 tslearn
+pyproj>=3.0.0
 lightgbm
 optuna
 plotly
