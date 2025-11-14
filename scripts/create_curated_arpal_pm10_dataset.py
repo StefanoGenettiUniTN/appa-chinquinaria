@@ -527,11 +527,11 @@ def create_curated_arpal_dataset(input_file, stations_file, output_file=None, ma
     print(f"   Missing values to fill: {result_df['pm10'].isna().sum():,}")
     
     # ============================================================================
-    # Step 7b: Filter stations with 2+ consecutive years of missing data (no records)
+    # Step 7b: Filter stations with 1+ consecutive years of missing data (no records)
     # This must be done BEFORE distance-weighted interpolation so we can identify
     # which years have actual measurements vs NaN
     # ============================================================================
-    print(f"\n7b. Filtering stations with 2+ consecutive years of missing data (no records)...")
+    print(f"\n7b. Filtering stations with 1+ consecutive years of missing data (no records)...")
     
     # Identify stations with consecutive years of missing data
     # A year is considered "missing" if it has no actual measurements (all NaN)
@@ -567,11 +567,11 @@ def create_curated_arpal_dataset(input_file, stations_file, output_file=None, ma
                 consecutive_missing = 0
         
         # If station has 2+ consecutive years with no actual data, mark for removal
-        if max_consecutive_missing >= 2:
+        if max_consecutive_missing >= 1:
             stations_to_drop.append((station_code, station_name, max_consecutive_missing, years_with_actual_data))
     
     if len(stations_to_drop) > 0:
-        print(f"   Found {len(stations_to_drop)} stations with 2+ consecutive years of missing data:")
+        print(f"   Found {len(stations_to_drop)} stations with 1+ consecutive years of missing data:")
         for station_code, station_name, max_consec_missing, years_with_data in stations_to_drop:
             missing_years = set(range(year_min, year_max + 1)) - years_with_data
             print(f"     {station_code} ({station_name[:50]}): {max_consec_missing} consecutive missing years")
@@ -590,7 +590,7 @@ def create_curated_arpal_dataset(input_file, stations_file, output_file=None, ma
         
         print(f"   Remaining stations: {sorted(result_df['station_code'].unique())}")
     else:
-        print(f"   No stations found with 2+ consecutive years of missing data")
+        print(f"   No stations found with 1+ consecutive years of missing data")
     
     # Remove temporary 'year' column
     if 'year' in result_df.columns:
