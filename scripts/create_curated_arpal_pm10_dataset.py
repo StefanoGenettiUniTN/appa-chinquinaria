@@ -2,7 +2,7 @@
 Script to create a curated PM10 dataset from the raw ARPAL merged CSV.
 
 This script performs the following operations:
-1. Drops all data before 2010 (keeps 2010 onwards)
+1. Drops all data before 2014 (keeps 2014 onwards)
 2. Drops stations: ARPAL_003, ARPAL_009, ARPAL_015, ARPAL_024
 3. Interpolates all gaps shorter than 4 hours using linear interpolation
 4. Final pass: interpolates remaining gaps shorter than 2 hours
@@ -309,7 +309,7 @@ def interpolate_station_data(station_df, max_gap_hours=4):
     return complete_df, interpolated_count, actual_interpolated
 
 
-def create_curated_arpal_dataset(input_file, stations_file, output_file=None, max_gap_hours=4, start_year=2010, confidence_threshold=0.25):
+def create_curated_arpal_dataset(input_file, stations_file, output_file=None, max_gap_hours=4, start_year=2014, confidence_threshold=0.25):
     """
     Main function to create curated ARPAL PM10 dataset.
     
@@ -318,7 +318,7 @@ def create_curated_arpal_dataset(input_file, stations_file, output_file=None, ma
         stations_file: Path to arpal_pm10_stations.csv
         output_file: Optional output file path (default: auto-generated)
         max_gap_hours: Maximum gap length to interpolate (default: 4 hours)
-        start_year: Year to start from (default: 2010)
+        start_year: Year to start from (default: 2014)
         confidence_threshold: Minimum confidence threshold for stations (default: 0.25)
                              Stations with confidence below this will be dropped before interpolation
     """
@@ -462,7 +462,7 @@ def create_curated_arpal_dataset(input_file, stations_file, output_file=None, ma
     # ============================================================================
     # Step 7: Create complete time series for all stations before distance-weighted interpolation
     # ============================================================================
-    print(f"\n7. Creating complete time series for all stations (2010-2024)...")
+    print(f"\n7. Creating complete time series for all stations (2014-2024)...")
     
     # Define global time range
     global_start = pd.Timestamp(f"{start_year}-01-01 00:00:00")
@@ -990,7 +990,7 @@ if __name__ == "__main__":
     stations_file = project_root / "data" / "arpal" / "PM10" / "arpal_pm10_stations.csv"
     output_file = project_root / "data" / "arpal" / "PM10" / "merged_pm10_hourly_curated.csv"
     
-    # Run curation (starting from 2010)
+    # Run curation (starting from 2014)
     # confidence_threshold: stations with confidence below this will be dropped
     # Set to 0.0 to keep all stations, or higher (e.g., 0.3) to filter low-confidence stations
     create_curated_arpal_dataset(
@@ -998,6 +998,6 @@ if __name__ == "__main__":
         stations_file,
         output_file=output_file, 
         max_gap_hours=4, 
-        start_year=2012,
+        start_year=2014,
         confidence_threshold=0.25
     )
