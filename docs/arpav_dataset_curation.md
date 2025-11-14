@@ -1,10 +1,10 @@
 # PM10 Dataset Curation Guide
 
-This document describes the curation process applied to the raw merged PM10 hourly dataset to create a high-quality, analysis-ready dataset.
+This document describes the curation process applied to the raw merged ARPAV PM10 hourly dataset to create a high-quality, analysis-ready dataset.
 
 ## Overview
 
-The curation script (`scripts/create_curated_pm10_dataset.py`) transforms the raw merged CSV file (`merged_pm10_hourly.csv`) into a curated dataset (`merged_pm10_hourly_curated.csv`) through a series of data quality improvements.
+The curation script (`scripts/create_curated_arpav_pm10_dataset.py`) transforms the raw merged CSV file (`merged_pm10_hourly.csv`) into curated datasets (`merged_pm10_hourly_curated*.csv`) through a series of data quality improvements.
 
 ## Curation Steps
 
@@ -20,15 +20,15 @@ The curation script (`scripts/create_curated_pm10_dataset.py`) transforms the ra
 
 **Action**: For each missing year, all hourly measurements from TV Lancieri are copied to TV S Agnese, maintaining the same timestamps but updating the station code and name.
 
-### 3. Drop Data Before 2012
+### 3. Drop Data Before 2014
 
-**Reason**: Early years (2010-2011) have incomplete coverage across stations, with many stations not yet operational. Starting from 2012 ensures better data consistency.
+**Reason**: Early years have incomplete coverage across stations, with many stations not yet operational. Starting from 2014 ensures better data consistency and aligns with downstream datasets.
 
-**Action**: All records with datetime before 2012-01-01 00:00:00 are removed. Data from 2012 onwards is retained.
+**Action**: All records with datetime before 2014-01-01 00:00:00 are removed. Data from 2014 onwards is retained.
 
-### 4. Interpolate Missing Hour in VE Tagliamento (2012)
+### 4. Interpolate Missing Hour in VE Tagliamento (2014)
 
-**Reason**: VE Tagliamento (502720) has exactly 1 missing hour in 2012, which can be easily interpolated from surrounding measurements.
+**Reason**: VE Tagliamento (502720) has a single missing hour in 2014, which can be reliably interpolated from surrounding measurements.
 
 **Action**: The missing hour is filled using linear interpolation between the preceding and following hours.
 
@@ -46,7 +46,9 @@ The curation script (`scripts/create_curated_pm10_dataset.py`) transforms the ra
 
 ## Output Dataset
 
-**Filename**: `merged_pm10_hourly_curated.csv`
+**Primary Filename**: `merged_pm10_hourly_curated.csv`
+
+**Metadata-Rich Filename**: `merged_pm10_hourly_curated_with_interp_metadata.csv` (adds `interpolation_method` describing whether a value is `actual`, `linear`, or still `missing`)
 
 **Columns**:
 - `datetime`: Hourly timestamp (YYYY-MM-DD HH:MM:SS)
@@ -62,14 +64,14 @@ The curation script (`scripts/create_curated_pm10_dataset.py`) transforms the ra
 - 502701: Bissuola
 - 502720: VE Tagliamento
 
-**Date Range**: 2012-01-01 00:00:00 onwards
+**Date Range**: 2014-01-01 00:00:00 onwards
 
 ## Usage
 
 Run the curation script:
 
 ```bash
-python scripts/create_curated_pm10_dataset.py
+python scripts/create_curated_arpav_pm10_dataset.py
 ```
 
 The script will:
