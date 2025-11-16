@@ -24,3 +24,5 @@ def load_data(dataset_version: str) -> pd.DataFrame:
     df = pd.read_csv(f"https://drive.google.com/uc?id={file_id}")
 
     return df
+
+
