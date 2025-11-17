@@ -449,15 +449,17 @@ def main():
     if raw_predictions is not None:
         try:
             print("Plotting results...")
-            series = val_tsdataset_with_cov.x_to_index(raw_predictions.x)["Stazione_APPA"]
-            for idx in range(len(dataset["Stazione_APPA"].unique())):
+            metadata_index = val_tsdataset_with_cov.x_to_index(raw_predictions.x)
+            which_stations = metadata_index["Stazione_APPA"].reset_index(drop=True)
+            for station in which_stations.unique():
+                idx = which_stations[which_stations == station].index[0] # select first available index 0 inside the metadata dataframe
                 best_model.plot_prediction(
                     raw_predictions.x,
                     raw_predictions.output,
                     idx=idx,
                     add_loss_to_title=True,
                 )
-                plt.suptitle(f"Series: {series.iloc[idx]}")
+                plt.suptitle(f"Series: {station}")
                 plt.show()
         except Exception as e:
             print(f"Failed to plot results :( to {e}")
