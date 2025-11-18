@@ -187,6 +187,66 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
 
         return self.to_network_output(prediction=output)
     
+    def fit(
+        train_dataloader, 
+        val_dataloader,
+        checkpoint_dir="checkpoints",
+        model_name="best_model.ckpt", 
+        **trainer_kwargs,
+    ) -> str:
+        try:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            checkpoint_path = os.path.join(checkpoint_dir, "best_model.ckpt")
+            if os.path.exists(checkpoint_path):
+                print("Checkpoint found, loading model...")
+                model = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
+            else:
+                print("No checkpoint found, training model...")
+                trainer = pl.Trainer(**trainer_kwargs)
+                trainer.fit(
+                    model,
+                    train_dataloaders=train_dataloader,
+                    val_dataloaders=val_dataloader,
+                )
+                # Canonicalize checkpoint path: move best checkpoint to checkpoint_path
+                best_model_path = getattr(trainer.checkpoint_callback, "best_model_path", None)
+
+                if best_model_path and os.path.exists(best_model_path):
+                    if best_model_path != checkpoint_path:
+                        # move/overwrite to have a stable checkpoint file name
+                        os.replace(best_model_path, checkpoint_path)
+                    print(f"Model trained and saved to {checkpoint_path}")
+                else:
+                    raise RuntimeError("Training finished but no best_model_path was found.")
+        except Exception as e:
+            raise RuntimeError(f"Full training with early stopping failed: {e}") from e
+
+    def get_best_model_and_val_loss(
+        val_dataloader,
+        checkpoint_dir="checkpoints",
+        model_name="best_model.ckpt", 
+        raw_predictions = None,
+    )->torch.Tensor:
+        try:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            checkpoint_path = os.path.join(checkpoint_dir, "best_model.ckpt")
+            if not os.path.exists(checkpoint_path):
+                raise FileNotFoundError(
+                    f"Checkpoint file not found at {checkpoint_path}. Cannot perform prediction."
+                )
+
+            print("Loading checkpoint of best model and making prediction...")
+            best_model = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
+            predictions = best_model.predict(
+                val_dataloader,
+                trainer_kwargs=dict(accelerator="gpu"),
+                return_y=True,
+            )
+            mae_metric = MAE()(predictions.output, predictions.y)
+            return best_model, mae_metric
+        except Exception as e:
+            print(f"Failed to perfom prediction to: {e}")
+
     @classmethod
     def from_dataset(cls, dataset: TimeSeriesDataSet, **kwargs):
         # example for dataset validation
@@ -316,15 +376,15 @@ def create_ts_dataset_with_covariates(
 
 
 def main():
-
-    checkpoint_dir = "checkpoints"
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    checkpoint_path = os.path.join(checkpoint_dir, "best_model.ckpt")
-
-    print("Class correctly declared, init data loading...")
-    dataset = load_data()
-    print("Data loaded correctly, proced to ts object parsing of pd DataFrame...")
-
+    # ----------------
+    # Data loading
+    # ----------------
+    try:
+        print("Class correctly declared, init data loading...")
+        dataset = load_data()
+        print("Data loaded correctly, proced to ts object parsing of pd DataFrame...")
+    except Exception as e:
+        raise ValueError(f"Error in loading data: {e}") from e
     # ----------------
     # TimeSeriesDataSet creation
     # ----------------
@@ -332,21 +392,22 @@ def main():
         train_tsdataset_with_cov, val_tsdataset_with_cov = create_ts_dataset_with_covariates(dataset)
         print("Dataset parsed correctly to TimeSeriesDataSet Object, URRAY!")
     except Exception as e:
-        raise KeyError(f"Something went wrong during TimeSeriesDataSet creation: {e}") from e
-
+        raise ValueError(f"Something went wrong during TimeSeriesDataSet creation: {e}") from e
     # ----------------
     # Model from dataset
     # ----------------
     try:
-        model = LSTModel.from_dataset(
-            train_tsdataset_with_cov,
+        model_kwargs = dict(
             n_layers=4,
             hidden_size=20,
         )
+        model = LSTModel.from_dataset(
+            train_tsdataset_with_cov,
+            model_kwargs,
+        )
         print("Model instantiated correctly from the dataset structure")
     except Exception as e:
-        raise KeyError(f"Something went wrong during model instantiation: {e}") from e
-
+        raise ValueError(f"Something went wrong during model instantiation: {e}") from e
     # ----------------
     # Dataloaders
     # ----------------
@@ -362,107 +423,47 @@ def main():
         print("Dataloaders are ready.")
     except Exception as e:
         raise ValueError(f"to_dataloader failed: {e}") from e
-
     # ----------------
-    # Training + checkpoint handling
+    # Getting best model and validation loss
     # ----------------
     try:
-        if os.path.exists(checkpoint_path):
-            print("Checkpoint found, loading model...")
-            model = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
-
-        else:
-            print("No checkpoint found, training model...")
-            early_stop_callback = EarlyStopping(
-                monitor="val_loss",
-                min_delta=1e-4,
-                patience=10,
-                verbose=False,
-                mode="min",
-            )
-
-            trainer = pl.Trainer(
-                max_epochs=30,
-                accelerator="gpu",
-                enable_model_summary=True,
-                gradient_clip_val=1e-1,
-                callbacks=[early_stop_callback],
-                limit_train_batches=50,
-                enable_checkpointing=True,
-                default_root_dir=checkpoint_dir,
-            )
-
-            trainer.fit(
-                model,
-                train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader,
-            )
-
-            # Canonicalize checkpoint path: move best checkpoint to checkpoint_path
-            best_model_path = getattr(trainer.checkpoint_callback, "best_model_path", None)
-
-            if best_model_path and os.path.exists(best_model_path):
-                if best_model_path != checkpoint_path:
-                    # move/overwrite to have a stable checkpoint file name
-                    os.replace(best_model_path, checkpoint_path)
-                print(f"Model trained and saved to {checkpoint_path}")
-            else:
-                raise RuntimeError("Training finished but no best_model_path was found.")
-
-    except Exception as e:
-        raise RuntimeError(f"Full training with early stopping failed: {e}") from e
-
-    # ----------------
-    # Prediction + plotting using the best checkpoint
-    # ----------------
-    raw_predictions = None
-    try:
-        if not os.path.exists(checkpoint_path):
-            raise FileNotFoundError(
-                f"Checkpoint file not found at {checkpoint_path}. Cannot perform prediction."
-            )
-
-        print("Loading checkpoint of best model and making prediction...")
-        best_model = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
-
-        predictions = best_model.predict(
+        best_model, mae_metric = model.get_best_model_and_val_loss(
             val_dataloader,
-            trainer_kwargs=dict(accelerator="gpu"),
-            return_y=True,
+            checkpoint_dir="checkpoints",
+            model_name="best_model.ckpt", 
+            raw_predictions = None,
         )
-        mae_metric = MAE()(predictions.output, predictions.y)
         print(f"MAE metric: {mae_metric}")
-
+    except Exception as e:
+        raise ValueError(f"Failed to perfom prediction to: {e}") from e
+    # ----------------
+    # Getting raw predictions on validation set and plotting them
+    # ----------------
+    eval = True
+    if eval:
         raw_predictions = best_model.predict(
             val_dataloader,
             mode="raw",
             return_x=True,
             trainer_kwargs=dict(accelerator="gpu"),
         )
-
-    except Exception as e:
-        print(f"Failed to perfom prediction to: {e}")
-
-    # ----------------
-    # Plotting
-    # ----------------
-    if raw_predictions is not None:
-        try:
-            print("Plotting results...")
-            metadata_index = val_tsdataset_with_cov.x_to_index(raw_predictions.x)
-            which_stations = metadata_index["Stazione_APPA"].reset_index(drop=True)
-            for station in which_stations.unique():
-                idx = which_stations[which_stations == station].index[0] # select first available index 0 inside the metadata dataframe
-                best_model.plot_prediction(
-                    raw_predictions.x,
-                    raw_predictions.output,
-                    idx=idx,
-                    add_loss_to_title=True,
-                )
-                plt.suptitle(f"Series: {station}")
-                plt.show()
-        except Exception as e:
-            print(f"Failed to plot results :( to {e}")
+        if raw_predictions is not None:
+            try:
+                print("Plotting results...")
+                metadata_index = val_tsdataset_with_cov.x_to_index(raw_predictions.x)
+                which_stations = metadata_index["Stazione_APPA"].reset_index(drop=True)
+                for station in which_stations.unique():
+                    idx = which_stations[which_stations == station].index[0] # select first available index 0 inside the metadata dataframe
+                    best_model.plot_prediction(
+                        raw_predictions.x,
+                        raw_predictions.output,
+                        idx=idx,
+                        add_loss_to_title=True,
+                    )
+                    plt.suptitle(f"Series: {station}")
+                    plt.show()
+            except Exception as e:
+                print(f"Failed to plot results :( to {e}")
 
 
 if __name__ == '__main__':
