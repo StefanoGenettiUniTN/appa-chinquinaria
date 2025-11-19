@@ -188,23 +188,25 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
         return self.to_network_output(prediction=output)
     
     def fit(
+        self,
         train_dataloader, 
         val_dataloader,
         checkpoint_dir="checkpoints",
         model_name="best_model.ckpt", 
         **trainer_kwargs,
-    ) -> str:
+    ):
         try:
             os.makedirs(checkpoint_dir, exist_ok=True)
-            checkpoint_path = os.path.join(checkpoint_dir, "best_model.ckpt")
+            checkpoint_path = os.path.join(checkpoint_dir, model_name)
             if os.path.exists(checkpoint_path):
                 print("Checkpoint found, loading model...")
-                model = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
+                loaded = LSTModel.load_from_checkpoint(checkpoint_path=checkpoint_path)
+                self.load_state_dict(loaded.state_dict())
             else:
                 print("No checkpoint found, training model...")
-                trainer = pl.Trainer(**trainer_kwargs)
+                trainer = pl.Trainer(default_root_dir=checkpoint_dir, **trainer_kwargs)
                 trainer.fit(
-                    model,
+                    self,
                     train_dataloaders=train_dataloader,
                     val_dataloaders=val_dataloader,
                 )
@@ -221,12 +223,13 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
         except Exception as e:
             raise RuntimeError(f"Full training with early stopping failed: {e}") from e
 
+    @staticmethod
     def get_best_model_and_val_loss(
         val_dataloader,
         checkpoint_dir="checkpoints",
         model_name="best_model.ckpt", 
         raw_predictions = None,
-    )->torch.Tensor:
+    ):
         try:
             os.makedirs(checkpoint_dir, exist_ok=True)
             checkpoint_path = os.path.join(checkpoint_dir, "best_model.ckpt")
@@ -403,7 +406,7 @@ def main():
         )
         model = LSTModel.from_dataset(
             train_tsdataset_with_cov,
-            model_kwargs,
+            **model_kwargs,
         )
         print("Model instantiated correctly from the dataset structure")
     except Exception as e:
@@ -423,6 +426,30 @@ def main():
         print("Dataloaders are ready.")
     except Exception as e:
         raise ValueError(f"to_dataloader failed: {e}") from e
+    
+    # ----------------
+    # Try training
+    # ----------------
+    try:
+        trainer_kwargs = dict(
+            max_epochs=30,
+            accelerator="gpu",
+            enable_model_summary=True,
+            gradient_clip_val=1e-1,
+            callbacks=EarlyStopping(
+                monitor="val_loss",
+                min_delta=1e-4,
+                patience=10,
+                verbose=False,
+                mode="min",
+            ),
+            limit_train_batches=50,
+            enable_checkpointing=True,
+        )
+        model.fit(train_dataloader, val_dataloader)
+    except Exception as e:
+        raise ValueError(f"Training failed to: {e}")
+
     # ----------------
     # Getting best model and validation loss
     # ----------------
