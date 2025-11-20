@@ -25,3 +25,4 @@ lightgbm
 optuna
 plotly
 kaleido
+folium
