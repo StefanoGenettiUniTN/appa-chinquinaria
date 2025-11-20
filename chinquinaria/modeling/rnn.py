@@ -296,6 +296,94 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
         ), "Encoder only supports a fixed length"
         return super().from_dataset(dataset, **kwargs)
 
+    @staticmethod
+    def build_full_length_prediction_frame(
+            raw_predictions,
+            ts_dataset: TimeSeriesDataSet,
+            reference_df: pd.DataFrame,
+            target_column: str = "PM10_(ug_m-3)",
+        ) -> pd.DataFrame:
+        """
+        Expand overlapping prediction windows into a single dataframe indexed by time_idx.
+        """
+        if not hasattr(raw_predictions, "output"):
+            raise ValueError("raw_predictions should be the object returned by model.predict with mode='raw'")
+
+        prediction = raw_predictions.output.get("prediction")
+        if prediction is None:
+            raise ValueError("Prediction output missing 'prediction' key")
+        if isinstance(prediction, (list, tuple)):
+            prediction = prediction[0]
+        prediction = prediction.detach().cpu()
+        if prediction.ndim == 3 and prediction.size(-1) == 1:
+            prediction = prediction.squeeze(-1)
+
+        decoder_time_idx = raw_predictions.x["decoder_time_idx"].detach().cpu()
+        decoder_lengths = raw_predictions.x.get("decoder_lengths")
+        if decoder_lengths is not None:
+            decoder_lengths = decoder_lengths.detach().cpu()
+
+        metadata_index = ts_dataset.x_to_index(raw_predictions.x).reset_index(drop=True)
+        rows = []
+        for row_id, row in metadata_index.iterrows():
+            station = row["Stazione_APPA"]
+            horizon = decoder_lengths[row_id].item() if decoder_lengths is not None else prediction.size(1)
+            for step in range(min(horizon, prediction.size(1))):
+                rows.append(
+                    {
+                        "Stazione_APPA": station,
+                        "time_idx": int(decoder_time_idx[row_id, step].item()),
+                        "prediction": float(prediction[row_id, step].item()),
+                    }
+                )
+
+        prediction_df = pd.DataFrame(rows)
+        if prediction_df.empty:
+            return prediction_df
+        prediction_df = (
+            prediction_df.groupby(["Stazione_APPA", "time_idx"], as_index=False)["prediction"]
+            .mean()
+        )
+
+        lookup_columns = ["Stazione_APPA", "time_idx"]
+        if "data" in reference_df.columns:
+            lookup_columns.append("data")
+        if target_column in reference_df.columns:
+            lookup_columns.append(target_column)
+        lookup_df = (
+            reference_df[lookup_columns]
+            .drop_duplicates(subset=["Stazione_APPA", "time_idx"])
+        )
+        prediction_df = prediction_df.merge(
+            lookup_df,
+            on=["Stazione_APPA", "time_idx"],
+            how="left",
+        )
+        return prediction_df
+
+    @staticmethod
+    def plot_full_length_predictions(prediction_df: pd.DataFrame, target_column: str = "PM10_(ug_m-3)"):
+        """
+        Plot aggregated predictions (and actuals where available) for every station.
+        """
+        if prediction_df.empty:
+            print("No aggregated predictions available to plot.")
+            return
+
+        for station, station_df in prediction_df.groupby("Stazione_APPA"):
+            station_df = station_df.sort_values("time_idx")
+            x_axis = station_df["data"] if "data" in station_df.columns else station_df["time_idx"]
+            fig, ax = plt.subplots(figsize=(12, 4))
+            ax.plot(x_axis, station_df["prediction"], label="Prediction", color="tab:orange")
+            if target_column in station_df.columns:
+                ax.plot(x_axis, station_df[target_column], label="Actual", color="tab:blue", alpha=0.7)
+            ax.set_title(f"Full test horizon - {station}")
+            ax.set_xlabel("Date" if "data" in station_df.columns else "time_idx")
+            ax.set_ylabel(target_column)
+            ax.legend()
+            fig.autofmt_xdate()
+            plt.show()
+
 
 def load_data() -> pd.DataFrame:
     file_id = "1iIOLm-jpBpZWl9kkKVxhFD1H3rrUgw1k"
@@ -503,94 +591,6 @@ def create_ts_dataset_with_covariates(
         raise Exception(f"Failed to parse the dataset to ts object: {str(e)}")
 
 
-def build_full_length_prediction_frame(
-        raw_predictions,
-        ts_dataset: TimeSeriesDataSet,
-        reference_df: pd.DataFrame,
-        target_column: str = "PM10_(ug_m-3)",
-    ) -> pd.DataFrame:
-    """
-    Expand overlapping prediction windows into a single dataframe indexed by time_idx.
-    """
-    if not hasattr(raw_predictions, "output"):
-        raise ValueError("raw_predictions should be the object returned by model.predict with mode='raw'")
-
-    prediction = raw_predictions.output.get("prediction")
-    if prediction is None:
-        raise ValueError("Prediction output missing 'prediction' key")
-    if isinstance(prediction, (list, tuple)):
-        prediction = prediction[0]
-    prediction = prediction.detach().cpu()
-    if prediction.ndim == 3 and prediction.size(-1) == 1:
-        prediction = prediction.squeeze(-1)
-
-    decoder_time_idx = raw_predictions.x["decoder_time_idx"].detach().cpu()
-    decoder_lengths = raw_predictions.x.get("decoder_lengths")
-    if decoder_lengths is not None:
-        decoder_lengths = decoder_lengths.detach().cpu()
-
-    metadata_index = ts_dataset.x_to_index(raw_predictions.x).reset_index(drop=True)
-    rows = []
-    for row_id, row in metadata_index.iterrows():
-        station = row["Stazione_APPA"]
-        horizon = decoder_lengths[row_id].item() if decoder_lengths is not None else prediction.size(1)
-        for step in range(min(horizon, prediction.size(1))):
-            rows.append(
-                {
-                    "Stazione_APPA": station,
-                    "time_idx": int(decoder_time_idx[row_id, step].item()),
-                    "prediction": float(prediction[row_id, step].item()),
-                }
-            )
-
-    prediction_df = pd.DataFrame(rows)
-    if prediction_df.empty:
-        return prediction_df
-    prediction_df = (
-        prediction_df.groupby(["Stazione_APPA", "time_idx"], as_index=False)["prediction"]
-        .mean()
-    )
-
-    lookup_columns = ["Stazione_APPA", "time_idx"]
-    if "data" in reference_df.columns:
-        lookup_columns.append("data")
-    if target_column in reference_df.columns:
-        lookup_columns.append(target_column)
-    lookup_df = (
-        reference_df[lookup_columns]
-        .drop_duplicates(subset=["Stazione_APPA", "time_idx"])
-    )
-    prediction_df = prediction_df.merge(
-        lookup_df,
-        on=["Stazione_APPA", "time_idx"],
-        how="left",
-    )
-    return prediction_df
-
-
-def plot_full_length_predictions(prediction_df: pd.DataFrame, target_column: str = "PM10_(ug_m-3)"):
-    """
-    Plot aggregated predictions (and actuals where available) for every station.
-    """
-    if prediction_df.empty:
-        print("No aggregated predictions available to plot.")
-        return
-
-    for station, station_df in prediction_df.groupby("Stazione_APPA"):
-        station_df = station_df.sort_values("time_idx")
-        x_axis = station_df["data"] if "data" in station_df.columns else station_df["time_idx"]
-        fig, ax = plt.subplots(figsize=(12, 4))
-        ax.plot(x_axis, station_df["prediction"], label="Prediction", color="tab:orange")
-        if target_column in station_df.columns:
-            ax.plot(x_axis, station_df[target_column], label="Actual", color="tab:blue", alpha=0.7)
-        ax.set_title(f"Full test horizon - {station}")
-        ax.set_xlabel("Date" if "data" in station_df.columns else "time_idx")
-        ax.set_ylabel(target_column)
-        ax.legend()
-        fig.autofmt_xdate()
-        plt.show()
-
-
 def split_train_test(df, training_start_date, training_end_date, testing_start_date, testing_end_date):
     train_df = df.loc[(df['Data'] >= training_start_date) & (df['Data'] < training_end_date)]
     test_df = df.loc[(df['Data'] >= testing_start_date) & (df['Data'] < testing_end_date)]
@@ -773,12 +773,12 @@ def rnn():
 
         if predictions is not None and CONFIG["full_test_plot"]:
             try:
-                full_predictions_df = build_full_length_prediction_frame(
+                full_predictions_df = LSTModel.build_full_length_prediction_frame(
                     predictions,
                     test_tsdataset_with_cov,
                     test_df_processed,
                 )
-                plot_full_length_predictions(full_predictions_df)
+                LSTModel.plot_full_length_predictions(full_predictions_df)
             except Exception as e:
                 print(f"Failed to build comprehensive test plots: {e}")
             finally:
