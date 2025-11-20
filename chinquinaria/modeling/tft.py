@@ -5,6 +5,12 @@ try:
     from lightning.pytorch.tuner import Tuner
     from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
     from pytorch_forecasting.metrics import QuantileLoss
+    import tensorflow as tf
+    import tensorboard as tb
+    from pytorch_forecasting.metrics import MAE
+    tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
+    import pickle
+    from pytorch_forecasting.models.temporal_fusion_transformer.tuning import optimize_hyperparameters
 
     print("Everything imported smoothly. Proceed to class declaration...\n")
 except Exception as e:
@@ -38,6 +44,9 @@ CONFIG = {
     "optimizer": "ranger",
     "lr_find_max": 10.0,
     "lr_find_min": 1e-6,
+    "train":True,
+    "optuna":True,
+    "evaluate":True,
 }
 
 
@@ -324,6 +333,53 @@ def tft():
         print(f"suggested learning rate: {res.suggestion()}")
         fig = res.plot(show=True, suggest=True)
         fig.show()
+    
+    if CONFIG["train"]:
+        lr_logger = LearningRateMonitor()  # log the learning rate
+        logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
+        print(f"Number of parameters in network: {model.size() / 1e3:.1f}k")
+        # fit network
+        trainer.fit(
+            model=model,
+            train_dataloaders=train_dataloader,
+            val_dataloaders=val_dataloader,
+        )
+    if CONFIG["optuna"]:
+        # create study
+        study = optimize_hyperparameters(
+            train_dataloader,
+            val_dataloader,
+            model_path="optuna_test",
+            n_trials=200,
+            max_epochs=50,
+            gradient_clip_val_range=(0.01, 1.0),
+            hidden_size_range=(8, 128),
+            hidden_continuous_size_range=(8, 128),
+            attention_head_size_range=(1, 4),
+            learning_rate_range=(0.001, 0.1),
+            dropout_range=(0.1, 0.3),
+            trainer_kwargs=dict(limit_train_batches=30),
+            reduce_on_plateau_patience=4,
+            use_learning_rate_finder=False,  # use Optuna to find ideal learning rate or use in-built learning rate finder
+        )
+
+        # save study results - also we can resume tuning at a later point in time
+        with open("test_study.pkl", "wb") as fout:
+            pickle.dump(study, fout)
+
+        # show best hyperparameters
+        print(study.best_trial.params)
+    
+    if CONFIG["evaluate"]:
+        # load the best model according to the validation loss
+        # (given that we use early stopping, this is not necessarily the last epoch)
+        best_model_path = trainer.checkpoint_callback.best_model_path
+        best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
+        # calcualte mean absolute error on validation set
+        predictions = best_tft.predict(
+            val_dataloader, return_y=True, trainer_kwargs=dict(accelerator="cpu")
+        )
+        MAE()(predictions.output, predictions.y)
 
 
 if __name__ == "__main__":

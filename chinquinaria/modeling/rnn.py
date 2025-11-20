@@ -29,15 +29,15 @@ CONFIG = {
     "end_training_date": "2023-02-01",
     "start_testing_date": "2023-02-01",
     "end_testing_date": "2024-02-01",
-    "max_encoder_length": 5,
-    "max_prediction_length": 2,
+    "max_encoder_length": 40,
+    "max_prediction_length": 10,
     "val":False,
     "test":True,
     "n_layers": 2,
     "hidden_size": 10,
     "num_of_workers": 0,
     "run_mode": "Test",
-    "max_epochs": 1,
+    "max_epochs": 30,
     "accelerator": "gpu",
     "enable_model_summary": True,
     "gradient_clip_val": 1e-1,
@@ -46,6 +46,7 @@ CONFIG = {
     "patience": 10,
     "verbose": False,
     "mode": "min",
+    "dropout":0.1,
     "plots_dir": "plots",
     "sample_plot": False,
     "full_test_plot": True,
@@ -78,7 +79,7 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
             time_varying_reals_decoder: List[str],
             embedding_paddings: List[str],
             categorical_groups: Dict[str, List[str]],
-            dropout: float = 0.5,            
+            dropout: float = CONFIG["dropout"],            
             **kwargs
     ):
         # mandatory calls
@@ -133,26 +134,7 @@ class LSTModel(AutoRegressiveBaseModelWithCovariates):
             self.target_positions.unsqueeze(-1),
         ].T
         input_vector[:, 0, self.target_positions] = last_encoder_target
-        # Encoder time steps cover:
-        #   ..., t-2, t-1, t
-        #
-        # Decoder is tasked with predicting:
-        #   t+1, t+2, ..., t+H
-        #
-        # Decoder input construction follows an autoregressive pattern:
-        #
-        # - At decoder step 0 (predicting t+1):
-        #       use y_t  -> the last target value from the encoder
-        #
-        # - At decoder step 1 (predicting t+2):
-        #       use y_{t+1}  -> the previous decoder target (ground truth during training)
-        #
-        # - At decoder step k (predicting t+k+1):
-        #       use y_{t+k}  -> the decoder target from the previous step
-        #
-        # In summary:
-        #   decoder_input[k] contains the target value from time (t + k - 1),
-        #   with decoder_input[0] initialized using the last encoder target y_t.
+
         if self.training:
             lstm_output, _ = self.lstm(
                 input_vector,
