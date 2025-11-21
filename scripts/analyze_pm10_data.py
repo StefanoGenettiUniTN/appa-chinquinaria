@@ -131,6 +131,38 @@ def find_contiguous_missing_periods(station_df, expected_times):
     return missing_lengths
 
 
+def find_nan_sequences_for_station(station_df):
+    """
+    Find all contiguous NaN sequences in the pm10 series for a specific station.
+
+    Args:
+        station_df: DataFrame with datetime and pm10 columns for one station
+
+    Returns:
+        List of lengths of contiguous NaN sequences (in hours, assuming hourly data)
+    """
+    if station_df.empty or "pm10" not in station_df.columns:
+        return []
+
+    station_df_sorted = station_df.sort_values("datetime").reset_index(drop=True)
+    is_nan = station_df_sorted["pm10"].isna().values
+
+    nan_lengths = []
+    current_length = 0
+
+    for flag in is_nan:
+        if flag:
+            current_length += 1
+        elif current_length > 0:
+            nan_lengths.append(current_length)
+            current_length = 0
+
+    if current_length > 0:
+        nan_lengths.append(current_length)
+
+    return nan_lengths
+
+
 def calculate_missing_values_for_station(station_df, global_start=None, global_end=None):
     """
     Calculate missing values for a station by comparing expected vs actual measurements.
@@ -344,7 +376,7 @@ def analyze_pm10_data(data_file, stations_file, output_dir=None):
     print(station_summary_df.to_string(index=False))
     
     # ============================================================================
-    # 3. Distribution of contiguous missing value periods
+    # 3. Distribution of contiguous missing value periods (based on absent rows)
     # ============================================================================
     print("\n" + "=" * 80)
     print("4. Distribution of Contiguous Missing Value Periods")
@@ -404,10 +436,56 @@ def analyze_pm10_data(data_file, stations_file, output_dir=None):
         print("\nNo missing values found in the dataset.")
     
     # ============================================================================
-    # 4. Distance matrix
+    # 4. Distribution of NaN sequences in PM10 values
     # ============================================================================
     print("\n" + "=" * 80)
-    print("5. Distance Matrix Among Stations")
+    print("5. Distribution of NaN Sequences in PM10 Values")
+    print("=" * 80)
+
+    nan_all_lengths = []
+    nan_lengths_per_station = {}
+
+    for station_code in unique_stations:
+        station_df = df[df["station_code"] == station_code].copy()
+        lengths = find_nan_sequences_for_station(station_df)
+        nan_lengths_per_station[station_code] = lengths
+        nan_all_lengths.extend(lengths)
+
+    if nan_all_lengths:
+        length_counts = pd.Series(nan_all_lengths).value_counts().sort_index()
+
+        print("\nDistribution of NaN sequence lengths (all stations):")
+        print(f"{'Length (hours)':<20} {'Frequency':<15} {'Percentage':<15}")
+        print("-" * 50)
+        total_nan_periods = len(nan_all_lengths)
+        for length, count in length_counts.items():
+            percentage = (count / total_nan_periods * 100) if total_nan_periods > 0 else 0
+            print(f"{length:<20} {count:<15} {percentage:.2f}%")
+
+        print(f"\nTotal NaN sequences: {total_nan_periods}")
+        print(f"Longest NaN sequence: {max(nan_all_lengths)} hours ({max(nan_all_lengths)/24:.1f} days)")
+        print(f"Shortest NaN sequence: {min(nan_all_lengths)} hours")
+        print(f"Mean NaN sequence length: {np.mean(nan_all_lengths):.2f} hours ({np.mean(nan_all_lengths)/24:.2f} days)")
+        print(f"Median NaN sequence length: {np.median(nan_all_lengths):.2f} hours ({np.median(nan_all_lengths)/24:.2f} days)")
+
+        print("\nNaN sequences per station:")
+        print(f"{'Station Code':<15} {'Station Name':<25} {'# Sequences':<12} {'Max Length':<12} {'Mean Length':<12}")
+        print("-" * 80)
+        for station_code in unique_stations:
+            lengths = nan_lengths_per_station[station_code]
+            station_name = stations_df[stations_df['station_code'] == station_code]['station_name'].values[0]
+            if lengths:
+                print(f"{station_code:<15} {station_name:<25} {len(lengths):<12} {max(lengths):<12} {np.mean(lengths):.2f}")
+            else:
+                print(f"{station_code:<15} {station_name:<25} {0:<12} {'N/A':<12} {'N/A':<12}")
+    else:
+        print("\nNo NaN values found in the pm10 series for any station.")
+
+    # ============================================================================
+    # 5. Distance matrix
+    # ============================================================================
+    print("\n" + "=" * 80)
+    print("6. Distance Matrix Among Stations")
     print("=" * 80)
     
     distance_matrix = calculate_distance_matrix(stations_df)

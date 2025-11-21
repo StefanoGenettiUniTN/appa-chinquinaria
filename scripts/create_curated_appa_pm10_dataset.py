@@ -517,7 +517,93 @@ def create_curated_appa_dataset(input_file, stations_file, output_file=None, max
         result_df = result_df.drop(columns=['closest_station'])
     
     print(f"\n   Copied {copied_count:,} missing values from closest stations")
-    print(f"   Missing values remaining: {result_df['pm10'].isna().sum():,}")
+    print(f"   Missing values remaining after closest-station copy: {result_df['pm10'].isna().sum():,}")
+    
+    # ============================================================================
+    # Step 4c: Distance-weighted interpolation (simple regression) for remaining NaNs
+    # ============================================================================
+    print(f"\n4c. Distance-weighted interpolation for remaining missing values...")
+    remaining_missing_before = result_df['pm10'].isna().sum()
+    
+    if remaining_missing_before > 0:
+        # Build distance matrix between stations using available coordinates
+        print("   Building distance matrix between stations...")
+        station_codes_list = sorted(stations_coords.keys())
+        distance_matrix = {}
+        for i, code1 in enumerate(station_codes_list):
+            for j, code2 in enumerate(station_codes_list):
+                if i == j:
+                    distance_matrix[(code1, code2)] = 0.0
+                else:
+                    lat1 = stations_coords[code1]['latitude']
+                    lon1 = stations_coords[code1]['longitude']
+                    lat2 = stations_coords[code2]['latitude']
+                    lon2 = stations_coords[code2]['longitude']
+                    distance_matrix[(code1, code2)] = haversine_distance(lat1, lon1, lat2, lon2)
+        
+        # Pivot to wide format for easier per-timestamp access
+        df_pivot = result_df.pivot_table(
+            index='datetime',
+            columns='station_code',
+            values='pm10',
+            aggfunc='first'
+        )
+        
+        filled_distance_weighted = 0
+        
+        def distance_weighted_fill(target_code, dt):
+            """Fill a single (station_code, datetime) using distance-weighted neighbors."""
+            if target_code not in df_pivot.columns:
+                return None
+            if dt not in df_pivot.index:
+                return None
+            row = df_pivot.loc[dt]
+            available = row.dropna()
+            if available.empty:
+                return None
+            
+            distances = []
+            values = []
+            for other_code, val in available.items():
+                if other_code == target_code:
+                    continue
+                key = (target_code, other_code)
+                if key not in distance_matrix:
+                    key = (other_code, target_code)
+                dist = distance_matrix.get(key)
+                if dist is None:
+                    continue
+                distances.append(dist)
+                values.append(val)
+            
+            if not distances:
+                return None
+            
+            scale = 50.0  # km, distance decay scale
+            scores = np.exp(-np.array(distances) / scale)
+            weights = scores / scores.sum()
+            return float(np.dot(weights, np.array(values)))
+        
+        # Iterate over all NaNs and try to fill them
+        for dt in df_pivot.index:
+            for station_code in df_pivot.columns:
+                if pd.isna(df_pivot.at[dt, station_code]):
+                    val = distance_weighted_fill(station_code, dt)
+                    if val is not None:
+                        df_pivot.at[dt, station_code] = val
+                        mask = (result_df['datetime'] == dt) & (result_df['station_code'] == station_code)
+                        result_df.loc[mask, 'pm10'] = val
+                        # Mark method only where it was 'actual' or missing
+                        method_mask = mask & result_df['interpolation_method'].isin(['actual', None, ''])
+                        result_df.loc[method_mask, 'interpolation_method'] = 'distance_weighted'
+                        filled_distance_weighted += 1
+        
+        remaining_missing_after = result_df['pm10'].isna().sum()
+        print(f"   Filled {filled_distance_weighted:,} values using distance-weighted interpolation.")
+        print(f"   Missing values remaining after distance-weighted interpolation: {remaining_missing_after:,}")
+    else:
+        filled_distance_weighted = 0
+        print("   No remaining missing values to fill with distance-weighted interpolation.")
     
     # ============================================================================
     # Step 5: Save curated dataset
@@ -555,7 +641,9 @@ def create_curated_appa_dataset(input_file, stations_file, output_file=None, max
     print(f"   Curated dataset: {len(result_df):,} rows")
     print(f"   Stations in curated dataset: {len(result_df['station_code'].unique())}")
     print(f"   Date range: {result_df['datetime'].min()} to {result_df['datetime'].max()}")
-    print(f"   Gaps interpolated (< {max_gap_hours}h): {total_actual_interpolated:,} hours")
+    print(f"   Gaps interpolated (< {max_gap_hours}h, linear): {total_actual_interpolated:,} hours")
+    print(f"   Values copied from closest stations: {copied_count:,}")
+    print(f"   Values filled via distance-weighted interpolation: {filled_distance_weighted:,}")
     
     # Per-station summary
     print(f"\n   Per-station row counts and completeness:")
@@ -566,13 +654,21 @@ def create_curated_appa_dataset(input_file, stations_file, output_file=None, max
         missing = station_data['pm10'].isna().sum()
         completeness = ((count - missing) / count * 100) if count > 0 else 0.0
         
-        # Count interpolated and copied values
+        # Count interpolated, copied, and distance-weighted values
         interp_count = (station_data['interpolation_method'] == 'linear').sum()
-        copied_count = station_data['interpolation_method'].str.startswith('copied_from_', na=False).sum()
-        interp_pct = (interp_count / count * 100) if count > 0 else 0.0
-        copied_pct = (copied_count / count * 100) if count > 0 else 0.0
+        copied_count_station = station_data['interpolation_method'].str.startswith('copied_from_', na=False).sum()
+        distw_count_station = (station_data['interpolation_method'] == 'distance_weighted').sum()
         
-        print(f"     {station_code} ({station_name[:45]}): {count:,} rows, {missing:,} missing ({completeness:.2f}% complete), {interp_count:,} interpolated ({interp_pct:.2f}%), {copied_count:,} copied ({copied_pct:.2f}%)")
+        interp_pct = (interp_count / count * 100) if count > 0 else 0.0
+        copied_pct = (copied_count_station / count * 100) if count > 0 else 0.0
+        distw_pct = (distw_count_station / count * 100) if count > 0 else 0.0
+        
+        print(
+            f"     {station_code} ({station_name[:45]}): {count:,} rows, {missing:,} missing "
+            f"({completeness:.2f}% complete), {interp_count:,} interpolated ({interp_pct:.2f}%), "
+            f"{copied_count_station:,} copied ({copied_pct:.2f}%), "
+            f"{distw_count_station:,} dist-weighted ({distw_pct:.2f}%)"
+        )
     
     print("\n" + "=" * 80)
     print("Dataset curation complete!")
