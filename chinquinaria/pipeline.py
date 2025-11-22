@@ -5,8 +5,9 @@ import pandas as pd
 from typing import Dict, List, Set, Tuple
 from chinquinaria.config import CONFIG
 from chinquinaria.data_loading.loader import load_data
-from chinquinaria.data_loading.splitter import split_train_test, create_time_windows
+from chinquinaria.data_loading.splitter import split_train_test_validation, create_time_windows
 from chinquinaria.modeling.train import train_model
+from chinquinaria.modeling.predict import predict
 from chinquinaria.modeling.predict import predict_windows
 from chinquinaria.explainability.shap import run_shap
 from chinquinaria.explainability.shap import generate_shap_summary
@@ -30,9 +31,13 @@ def run_pipeline():
                 logger.debug(f"Column: {col}")
             logger.debug(f"Data sample:\n{df.head()}")
 
-    train_df, test_df = split_train_test(df, CONFIG["start_training_date"], CONFIG["end_training_date"],
-                                        CONFIG["start_testing_date"], CONFIG["end_testing_date"])
-
+    train_df, validation_df, test_df = split_train_test_validation( df=df,
+                                                                    training_start_date=CONFIG["start_training_date"],
+                                                                    training_end_date=CONFIG["end_training_date"],
+                                                                    validation_start_date=CONFIG["start_validation_date"],
+                                                                    validation_end_date=CONFIG["end_validation_date"],
+                                                                    testing_start_date=CONFIG["start_testing_date"],
+                                                                    testing_end_date=CONFIG["end_testing_date"])
     if CONFIG["debug"]:
         logger.debug(f"Training data length: {len(train_df)}")
         logger.debug(f"Training data date range: {train_df['Data'].min()} to {train_df['Data'].max()}")
@@ -42,6 +47,10 @@ def run_pipeline():
     logger.info("Training model...")
     model = train_model(train_df)
     logger.info("Model training completed.")
+
+    logger.info("Validation set evaluation...")
+    validation_preds_df = predict(model, validation_df)
+    logger.info("Validation completed.")
 
     windows: List[pd.DataFrame] = create_time_windows(test_df, CONFIG["window_size_months"])
     window_summaries = []
