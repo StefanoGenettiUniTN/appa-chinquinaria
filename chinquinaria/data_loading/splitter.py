@@ -10,6 +10,12 @@ def split_train_test(df, training_start_date, training_end_date, testing_start_d
     test_df = df[(df['Data'] >= testing_start_date) & (df['Data'] < testing_end_date)]
     return train_df, test_df
 
+def split_train_test_validation(df, training_start_date, training_end_date, validation_start_date, validation_end_date, testing_start_date, testing_end_date):
+    train_df = df[(df['Data'] >= training_start_date) & (df['Data'] < training_end_date)]
+    validation_df = df[(df['Data'] >= validation_start_date) & (df['Data'] < validation_end_date)]
+    test_df = df[(df['Data'] >= testing_start_date) & (df['Data'] < testing_end_date)]
+    return train_df, validation_df, test_df
+
 def create_time_windows(test_df, window_size_months):
     """
     Create sequential time windows of window_size_months months from the test dataset.

@@ -13,7 +13,9 @@ CONFIG = {
     "debug": True,
     "dataset": "merged_appa_eea_by_proximity_v5", # v1_day or merged_appa_eea_by_proximity_v4 or merged_appa_eea_by_proximity_v5
     "start_training_date": "2013-01-01",
-    "end_training_date": "2024-01-01",
+    "end_training_date": "2023-01-01",
+    "start_validation_date": "2023-01-01",
+    "end_validation_date": "2024-01-01",
     "start_testing_date": "2024-01-01",
     "end_testing_date": "2025-01-01",
     "window_size_months": 1,
