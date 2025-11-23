@@ -49,7 +49,7 @@ def run_pipeline():
     logger.info("Model training completed.")
 
     logger.info("Validation set evaluation...")
-    validation_preds_df = predict(model, validation_df)
+    validation_preds_df = predict(model, validation_df, type="validation")
     logger.info("Validation completed.")
 
     windows: List[pd.DataFrame] = create_time_windows(test_df, CONFIG["window_size_months"])
@@ -62,71 +62,79 @@ def run_pipeline():
             logger.debug(f"Window {i+1} length: {len(window)}")
             logger.debug(f"Window {i+1} date range: {window['Data'].min()} to {window['Data'].max()}")
 
-    for i, window in enumerate(windows, start=1):
-        logger.info(f"Processing window {i}/{len(windows)}...")
-        preds_df: pd.DataFrame = predict_windows(model, window)
-        shap_res = run_shap(model, preds_df)
-        
-        if CONFIG["debug"]:
-            logger.debug(f"SHAP results for window {i}: {shap_res}")
+    if CONFIG["pyTorch_forecasting"]:
+        test_predictions_df = predict(model, test_df, type="test")
+        for i, window in enumerate(windows, start=1):
+            logger.info(f"Processing window {i}/{len(windows)}...")
+            curr_preds_df = test_predictions_df[test_predictions_df["data"].isin(window["Data"].unique())]
+            model.plot_full_length_predictions(curr_preds_df)
+    
+    else:
+        for i, window in enumerate(windows, start=1):
+            logger.info(f"Processing window {i}/{len(windows)}...")
+            preds_df: pd.DataFrame = predict_windows(model, window)
+            shap_res = run_shap(model, preds_df)
+            
+            if CONFIG["debug"]:
+                logger.debug(f"SHAP results for window {i}: {shap_res}")
 
-        plot_feature_importance(
-            top_features=shap_res["top_features"],
-            window_index=i
-        )
+            plot_feature_importance(
+                top_features=shap_res["top_features"],
+                window_index=i
+            )
 
-        # save shap results to csv with columns: window_id, feature, mean_abs_shap_value
-        mean_shap = shap_res["mean_shap"]
-        shap_df = pd.DataFrame({
-            "model_type": CONFIG["model_type"],
-            "window_id": i,
-            "feature": mean_shap.index,
-            "mean_abs_shap_value": mean_shap.values
-        })
-        shap_file_name = f"shap_values_window_{i}.csv"
-        shap_file_path = CONFIG["output_path"] / shap_file_name
-        shap_df.to_csv(shap_file_path, index=False)
-
-        if CONFIG["recycle_window_essays"]:
-            summary_file_name = f"llm_summary_window_{i}.txt"
-            summary_file_path = CONFIG["output_path"] / summary_file_name
-            summary_file = open(summary_file_path, "r")
-            summary_text = summary_file.read()
-            summary_file.close()
-            logger.info(f"Recycled LLM summary for window {i} from {summary_file_path}")
-        else:
-            shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
-
-            # save shap_text on file
-            shap_file_name = f"shap_summary_window_{i}.txt"
+            # save shap results to csv with columns: window_id, feature, mean_abs_shap_value
+            mean_shap = shap_res["mean_shap"]
+            shap_df = pd.DataFrame({
+                "model_type": CONFIG["model_type"],
+                "window_id": i,
+                "feature": mean_shap.index,
+                "mean_abs_shap_value": mean_shap.values
+            })
+            shap_file_name = f"shap_values_window_{i}.csv"
             shap_file_path = CONFIG["output_path"] / shap_file_name
-            shap_file = open(shap_file_path, "w")
-            shap_file.write(shap_text)
-            shap_file.close()
+            shap_df.to_csv(shap_file_path, index=False)
+
+            if CONFIG["recycle_window_essays"]:
+                summary_file_name = f"llm_summary_window_{i}.txt"
+                summary_file_path = CONFIG["output_path"] / summary_file_name
+                summary_file = open(summary_file_path, "r")
+                summary_text = summary_file.read()
+                summary_file.close()
+                logger.info(f"Recycled LLM summary for window {i} from {summary_file_path}")
+            else:
+                shap_text = generate_shap_summary(shap_res, window["data"].min(), window["data"].max())
+
+                # save shap_text on file
+                shap_file_name = f"shap_summary_window_{i}.txt"
+                shap_file_path = CONFIG["output_path"] / shap_file_name
+                shap_file = open(shap_file_path, "w")
+                shap_file.write(shap_text)
+                shap_file.close()
 
             shap_texts.append(shap_text)
             summary_text = summarize_shap(shap_text)
 
-            if CONFIG["debug"]:
-                logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
+                if CONFIG["debug"]:
+                    logger.debug(f"LLM Summary for window {i}:\n{summary_text}")
 
-            summary_file_name = f"llm_summary_window_{i}.txt"
-            summary_file_path = CONFIG["output_path"] / summary_file_name
-            summary_file = open(summary_file_path, "w")
-            summary_file.write(summary_text)
-            summary_file.close()
+                summary_file_name = f"llm_summary_window_{i}.txt"
+                summary_file_path = CONFIG["output_path"] / summary_file_name
+                summary_file = open(summary_file_path, "w")
+                summary_file.write(summary_text)
+                summary_file.close()
 
-        window_summaries.append(summary_text)
+            window_summaries.append(summary_text)
 
     logger.info("Generating final report...")
     shap_corpus_text = "\n\n".join(shap_texts) if shap_texts else None
     final_report = generate_final_essay(window_summaries, shap_data=shap_corpus_text)
 
-    final_report_file_name = "final_report.txt"
-    final_report_file_path = CONFIG["output_path"] / final_report_file_name
-    final_report_file = open(final_report_file_path, "w")
-    final_report_file.write(final_report)
-    final_report_file.close()
+            final_report_file_name = "final_report.txt"
+            final_report_file_path = CONFIG["output_path"] / final_report_file_name
+            final_report_file = open(final_report_file_path, "w")
+            final_report_file.write(final_report)
+            final_report_file.close()
 
     logger.info(f"Pipeline completed! Report saved to {CONFIG['output_path']}")
 

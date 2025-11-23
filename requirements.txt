@@ -26,3 +26,5 @@ optuna
 plotly
 kaleido
 folium
+lightning
+pytorch-forecasting

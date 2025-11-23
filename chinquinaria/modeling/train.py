@@ -1,28 +1,58 @@
 """
 Train the selected model using the training dataset.
 """
-import pandas as pd
 import time
+import pandas as pd
+
+from lightning.pytorch.callbacks import EarlyStopping
+
+from chinquinaria.config import CONFIG
 from chinquinaria.modeling.xgboost_model import XGBoostModel
 from chinquinaria.modeling.lightgbm import LightGBMModel
 from chinquinaria.modeling.mlp import TorchMLPModel
-from chinquinaria.utils.file_io import save_pickle
-from chinquinaria.config import CONFIG
-from chinquinaria.utils.evaluation import evaluate_predictions
-from chinquinaria.utils.evaluation import plot_evaluation
-from chinquinaria.utils.logger import get_logger
+from chinquinaria.modeling.rnn import (
+    create_ts_dataset_with_covariates_for_V5,
+    LSTModel, CONFIG_RNN,
+) 
 from chinquinaria.modeling.random_forest import RandomForestModel
+from chinquinaria.utils.file_io import save_pickle
+from chinquinaria.utils.evaluation import evaluate_predictions, plot_evaluation
+from chinquinaria.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-def train_model(train_df: pd.DataFrame):
+def train_model(train_df: pd.DataFrame, pyTorch_forecasting: bool = False):
     model = None
 
     # Training preprocessing ===============================================
     logger.info("Training preprocessing... ")
-
-    # normalize column names
-    train_df.columns = [col.strip().lower() for col in train_df.columns]
+    if CONFIG["pyTorch_forecasting"]:
+        if CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+                train_df_processed = train_df.copy()
+                train_df_processed["data"] = pd.to_datetime(train_df_processed["Data"], format="%Y-%m-%d")
+                train_df_processed.sort_values("Data", inplace=True)
+                train_df_processed["time_idx"] = train_df_processed.groupby("Stazione_APPA").cumcount()
+                train_df_processed.columns = train_df_processed.columns.str.replace('.', '_', regex=False)
+                training, validation = create_ts_dataset_with_covariates_for_V5(
+                        train_df_processed,
+                        max_encoder_length=CONFIG_RNN["max_encoder_length"],
+                        max_prediction_length=CONFIG_RNN["max_prediction_length"],
+                        val=True,
+                        test=False,
+                        preprocess=False,
+                )
+                print("\n\nSwitching data to dataloaders for training...\n\n")
+                batch_size = 128
+                train_dataloader = training.to_dataloader(
+                    train=True, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
+                )
+                val_dataloader = validation.to_dataloader(
+                    train=False, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
+                )
+                logger.info("Training preprocessing DONE")
+    else:
+        # normalize column names
+        train_df.columns = [col.strip().lower() for col in train_df.columns]
 
     # drop columns that are not features for predicting PM10
     if CONFIG["dataset"] == "v1_day":
@@ -308,96 +338,158 @@ def train_model(train_df: pd.DataFrame):
                                          "vr_legnago_id"])
         y_train = train_df["pm10_(ug.m-3)"]
 
-    # fix for missing values (only for v1_day dataset)
-    if CONFIG["dataset"] == "v1_day":
-        x_train = x_train.fillna(0)
-        y_train = y_train.fillna(y_train.mean())
+        # fix for missing values (only for v1_day dataset)
+        if CONFIG["dataset"] == "v1_day":
+            x_train = x_train.fillna(0)
+            y_train = y_train.fillna(y_train.mean())
 
-    if CONFIG["debug"]:
-        logger.debug(f"\n+x_train:\n{x_train.head()}")
-        logger.debug(f"\n+y_train:\n{y_train.head()}")
+        if CONFIG["debug"]:
+            logger.debug(f"\n+x_train:\n{x_train.head()}")
+            logger.debug(f"\n+y_train:\n{y_train.head()}")
 
-    logger.info("Training preprocessing DONE")
+        logger.info("Training preprocessing DONE")
 
     # Model training =======================================================
     if CONFIG["model_type"] == "xgboost":
-        logger.info(f"Training {CONFIG['model_type']} model...")
-        model = XGBoostModel(n_estimators=200, learning_rate=0.05)
-        start_time = time.time()
-        model.train(x_train, y_train)
-        end_time = time.time()
-        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
-        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+            logger.info(f"Training {CONFIG['model_type']} model...")
+            model = XGBoostModel(n_estimators=200, learning_rate=0.05)
+            start_time = time.time()
+            model.train(x_train, y_train)
+            end_time = time.time()
+            save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+            logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
     elif CONFIG["model_type"] == "lightgbm":
-        logger.info(f"Training {CONFIG['model_type']} model...")
-        model = LightGBMModel(n_estimators=200, learning_rate=0.05)
-        start_time = time.time()
-        model.train(x_train, y_train)
-        end_time = time.time()
-        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
-        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+            logger.info(f"Training {CONFIG['model_type']} model...")
+            model = LightGBMModel(n_estimators=200, learning_rate=0.05)
+            start_time = time.time()
+            model.train(x_train, y_train)
+            end_time = time.time()
+            save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+            logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
     elif CONFIG["model_type"] == "mlp":
-        logger.info(f"Training {CONFIG['model_type']} model...")
-        model = TorchMLPModel(input_dim=x_train.shape[1])
-        start_time = time.time()
-        model.train(x_train, y_train)
-        end_time = time.time()
-        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
-        logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+            logger.info(f"Training {CONFIG['model_type']} model...")
+            model = TorchMLPModel(input_dim=x_train.shape[1])
+            start_time = time.time()
+            model.train(x_train, y_train)
+            end_time = time.time()
+            save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+            logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
     elif CONFIG["model_type"] == "random_forest":
+            logger.info(f"Training {CONFIG['model_type']} model...")
+            model = RandomForestModel(n_estimators=200)
+            start_time = time.time()
+            model.train(x_train, y_train)
+            end_time = time.time()
+            save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
+            logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
+    elif CONFIG["model_type"] == "lstm":
         logger.info(f"Training {CONFIG['model_type']} model...")
-        model = RandomForestModel(n_estimators=200)
+        model_kwargs = dict(
+            n_layers=CONFIG_RNN["n_layers"],
+            hidden_size=CONFIG_RNN["hidden_size"],
+        )
+        model = LSTModel.from_dataset(
+            training,
+            **model_kwargs,
+        )
         start_time = time.time()
-        model.train(x_train, y_train)
+        trainer_kwargs = dict(
+            max_epochs=CONFIG_RNN["max_epochs"],
+            accelerator=CONFIG_RNN["accelerator"],
+            enable_model_summary=CONFIG_RNN["enable_model_summary"],
+            gradient_clip_val=CONFIG_RNN["gradient_clip_val"],
+            callbacks=EarlyStopping(
+                monitor=CONFIG_RNN["monitor"],
+                min_delta=CONFIG_RNN["min_delta"],
+                patience=CONFIG_RNN["patience"],
+                verbose=CONFIG_RNN["verbose"],
+                mode=CONFIG_RNN["mode"],
+            ),
+            enable_checkpointing=True,
+        )
+        model.fit(
+            train_dataloader,
+            val_dataloader, 
+            checkpoint_dir=CONFIG['output_path'],
+            model_name="trained_model.ckpt",
+            **trainer_kwargs)
         end_time = time.time()
-        save_pickle(model, f"{CONFIG['output_path']}/trained_model.pkl")
         logger.info(f"Model training DONE ({end_time - start_time:.2f} seconds) and model saved to disk ({CONFIG['output_path']}/trained_model.pkl)")
     else:
         raise ValueError(f"Unsupported model type: {CONFIG['model_type']}")
 
-    # Evaluate training performance ========================================
-    logger.info("Evaluating training performance...")
-    y_pred = model.predict(x_train)
-    training_performance = evaluate_predictions(y_train, y_pred)
-    logger.info("Training performance: %s", training_performance)
-
-    # save training performance to csv using pandas with columns: model_type, mae, rmse, dtw, execution_time
-    performance_df = pd.DataFrame([{
-        "model_type": CONFIG["model_type"],
-        "mae": training_performance["mae"],
-        "rmse": training_performance["rmse"],
-        "dtw": training_performance["dtw"],
-        "execution_time_seconds": round(end_time - start_time, 3)
-    }])
-    performance_file_path = CONFIG["output_path"] / "training_performance.csv"
-    performance_df.to_csv(performance_file_path, index=False)
-
-    # Plot training predictions
-    if CONFIG["dataset"] == "v1_day":
-        plot_evaluation(train_df["stazione"], train_df["data"], y_train, y_pred)
-        #print("Skipping plot_evaluation for v1_day dataset")
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
-        plot_evaluation(train_df["stazione_appa"], train_df["data"], y_train, y_pred)
-        #print("Skipping plot_evaluation for merged_appa_eea_by_proximity dataset")
-
-    # save training predictions to csv
-    if CONFIG["dataset"] == "v1_day":
-        training_predictions_df = pd.DataFrame({
+    if CONFIG["pyTorch_forecasting"]:
+        # Evaluate training performance ========================================
+        logger.info("Evaluating training performance...")
+        mae_metric = model.get_val_loss(val_dataloader)
+        logger.info(f"MAE metric: {mae_metric}")
+        # save training performance to csv using pandas with columns
+        performance_df = pd.DataFrame([{
             "model_type": CONFIG["model_type"],
-            "stazione": train_df["stazione"],
-            "data": train_df["data"],
-            "actual": y_train,
-            "predicted": y_pred
-        })
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
-        training_predictions_df = pd.DataFrame({
-            "model_type": CONFIG["model_type"],
-            "stazione": train_df["stazione_appa"],
-            "data": train_df["data"],
-            "actual": y_train,
-            "predicted": y_pred
-        })
-    training_predictions_file_path = CONFIG["output_path"] / "training_predictions.csv"
-    training_predictions_df.to_csv(training_predictions_file_path, index=False)
-
-    return model
+            "mae": mae_metric,
+            #"rmse": training_performance["rmse"],
+            #"dtw": training_performance["dtw"],
+            "execution_time_seconds": round(end_time - start_time, 3)
+        }])
+        performance_file_path = CONFIG["output_path"] / "training_performance.csv"
+        performance_df.to_csv(performance_file_path, index=False)
+        # Skipping plot training for lstm
+        if CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+            raw_predictions_on_train = model.predict(
+                train_dataloader,
+                mode="raw",
+                return_x=True,
+                trainer_kwargs=dict(accelerator=CONFIG_RNN["accelerator"]),
+            )
+            full_predictions_df = LSTModel.build_full_length_prediction_frame(
+                raw_predictions_on_train,
+                training,
+                train_df_processed,
+            )
+            full_predictions_df["model_type"] = CONFIG["model_type"]
+            training_predictions_file_path = CONFIG["output_path"] / "training_predictions.csv"
+            full_predictions_df.to_csv(training_predictions_file_path, index=False)
+        return model
+    else:
+        # Evaluate training performance ========================================
+        logger.info("Evaluating training performance...")
+        y_pred = model.predict(x_train)
+        training_performance = evaluate_predictions(y_train, y_pred)
+        logger.info("Training performance: %s", training_performance)
+        # save training performance to csv using pandas with columns: model_type, mae, rmse, dtw, execution_time
+        performance_df = pd.DataFrame([{
+                "model_type": CONFIG["model_type"],
+                "mae": training_performance["mae"],
+                "rmse": training_performance["rmse"],
+                "dtw": training_performance["dtw"],
+                "execution_time_seconds": round(end_time - start_time, 3)
+            }])
+        performance_file_path = CONFIG["output_path"] / "training_performance.csv"
+        performance_df.to_csv(performance_file_path, index=False)
+        # Plot training predictions
+        if CONFIG["dataset"] == "v1_day":
+                plot_evaluation(train_df["stazione"], train_df["data"], y_train, y_pred)
+                #print("Skipping plot_evaluation for v1_day dataset")
+        elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+                plot_evaluation(train_df["stazione_appa"], train_df["data"], y_train, y_pred)
+                #print("Skipping plot_evaluation for merged_appa_eea_by_proximity dataset")
+        # save training predictions to csv
+        if CONFIG["dataset"] == "v1_day":
+                training_predictions_df = pd.DataFrame({
+                    "model_type": CONFIG["model_type"],
+                    "stazione": train_df["stazione"],
+                    "data": train_df["data"],
+                    "actual": y_train,
+                    "predicted": y_pred
+                })
+        elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+                training_predictions_df = pd.DataFrame({
+                    "model_type": CONFIG["model_type"],
+                    "stazione": train_df["stazione_appa"],
+                    "data": train_df["data"],
+                    "actual": y_train,
+                    "predicted": y_pred
+                })
+        training_predictions_file_path = CONFIG["output_path"] / "training_predictions.csv"
+        training_predictions_df.to_csv(training_predictions_file_path, index=False)
+        return model
