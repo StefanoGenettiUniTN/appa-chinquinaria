@@ -82,6 +82,64 @@ def build_shap_prompt(
                 f"{shap_raw_data}",
             ]
         return "\n".join(body)
+    
+    if variant == "v4":
+        # Feature description but optimized
+        body = [
+        "You are assisting an environmental scientist studying PM10 in the province of Trento (TN). "
+        "Using the model insights below, produce a clear, well-structured analysis.",
+        "",
+        "Requirements:",
+        "- Start with a 2-3 sentence executive summary highlighting top drivers, not use bold text",
+        "- Explain the direction (increase/decrease) of key features on PM10",
+        "- Identify and rank the most influential features and describe their effects",
+        "- Note time/seasonal effects or interactions only if evident",
+        "- Do not include numeric feature importance values",
+        "- Refer to 'feature importance' or 'model insights'; never mention SHAP",
+        "- When mentioning places, specify the province in parentheses, note that Bologna is not in the dataset",
+        "",
+        "Style & Constraints:",
+        "- Use bullet points and short paragraphs",
+        "- Be precise, avoid speculation beyond provided data",
+        "- Keep under 200 words",
+        "",
+        "Feature information:",
+        "- Meteorology features:",
+        "  - Humidity at 550 hPa, 950 hPa",
+        "  - Air temperature at 550 hPa, 850 hPa, 950 hPa",
+        "  - Zonal wind (U) at 550 hPa, 850 hPa, 950 hPa",
+        "  - Meridional wind (V) at 550 hPa, 850 hPa, 950 hPa",
+        "  - Precipitation (mm), surface air temperature (°C), relative humidity (%), wind speed (m/s), wind direction (°), atmospheric pressure (hPa), total solar radiation (kJ/m²), boundary-layer height",
+        "- Representative PM10 levels for each province:",
+        "  - BG: PM10 Calusco D'Adda",
+        "  - BL: PM10 Parco Città di Bologna, not related with Bologna city/province",
+        "  - BS: PM10 Palazzo del Broletto, Brescia",
+        "  - CR: PM10 Piazza Cadorna, Cremona",
+        "  - FE: PM10 Corso Isonzo, Ferrara",
+        "  - LC: PM10 Valmadrera",
+        "  - MN: PM10 Ponti sul Mincio",
+        "  - MO: PM10 Via Ramesina, Modena",
+        "  - PD: PM10 Granze",
+        "  - PR: PM10 Via Saragat, Parma",
+        "  - RE: PM10 San Rocco, Reggio Emilia",
+        "  - RO: PM10 Largo Martiri, Rovigo",
+        "  - TV: PM10 Conegliano",
+        "  - VE: PM10 Sacca Fisola, Venice",
+        "  - VI: PM10 Quartiere Italia, Vicenza",
+        "  - VR: PM10 Borgo Milano, Verona",
+        "",
+        "Model insights data:",
+        f"{shap_summary_text}"
+    ]
+
+        if shap_raw_data:
+            body += [
+                "",
+                "Raw model data (for grounding claims; do not copy verbatim):",
+                f"{shap_raw_data}"
+            ]
+
+        return "\n".join(body)
 
     # Default fallback to baseline if unknown
     return build_shap_prompt("v1", shap_summary_text, shap_raw_data)
@@ -155,6 +213,33 @@ def build_final_summary_prompt(
             "Window analyses:",
             f"{combined_text}",
         ]
+        if shap_corpus:
+            body += [
+                "",
+                "Additional SHAP corpus (use as evidential backing):",
+                f"{shap_corpus}",
+            ]
+        return "\n".join(body)
+    
+    if variant == "v4":
+        body = [
+        "Here are multiple analyses of pollutant behavior across time windows:"
+        f"{combined_text}",
+        "Please write a coherent essay summarizing key findings, trends, and implications for air quality management.",
+        "Structure:",
+        "- Executive summary (3-5 bullet points), avoid bold words.",
+        "- Consistent Patterns Across Windows.",
+        "- Check for seasonal effects",
+        "- Divergences/Anomalies and Possible Context.",
+        "",
+        "Guidelines:",
+        "- Bologna is not present"
+        "- Cite specific windows when referencing notable effects.",
+        "- Ground claims in provided SHAP evidence; avoid speculation.",
+        "- Avoid mentioning SHAP explicitly; refer instead to 'feature importance' or 'model insights', do not show shap values.",
+        "- Keep the report under 600 words.",
+        ]
+
         if shap_corpus:
             body += [
                 "",
