@@ -189,7 +189,7 @@ def run_shap(model, window_df: pd.DataFrame) -> Dict[str, List[float]]:
                                             "veneto_ma_18_max_lat",
                                             "veneto_ma_18_max_lon",
                                             "veneto_ma_18_unità di misura"])
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         x_shap = window_df.drop(columns=["data",
                                          "stazione_appa",
                                          "pm10_(ug.m-3)",

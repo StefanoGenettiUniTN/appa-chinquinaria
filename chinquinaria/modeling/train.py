@@ -202,7 +202,7 @@ def train_model(train_df: pd.DataFrame):
                                             "veneto_ma_18_max_lon",
                                             "veneto_ma_18_unità di misura"])
         y_train = train_df["valore"]
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         x_train = train_df.drop(columns=["data",
                                          "stazione_appa",
                                          "pm10_(ug.m-3)",
@@ -376,7 +376,7 @@ def train_model(train_df: pd.DataFrame):
     if CONFIG["dataset"] == "v1_day":
         plot_evaluation(train_df["stazione"], train_df["data"], y_train, y_pred)
         #print("Skipping plot_evaluation for v1_day dataset")
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         plot_evaluation(train_df["stazione_appa"], train_df["data"], y_train, y_pred)
         #print("Skipping plot_evaluation for merged_appa_eea_by_proximity dataset")
 
@@ -389,7 +389,7 @@ def train_model(train_df: pd.DataFrame):
             "actual": y_train,
             "predicted": y_pred
         })
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         training_predictions_df = pd.DataFrame({
             "model_type": CONFIG["model_type"],
             "stazione": train_df["stazione_appa"],

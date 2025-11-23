@@ -192,7 +192,7 @@ def predict(model, df: pd.DataFrame):
                                     "veneto_ma_18_max_lon",
                                     "veneto_ma_18_unità di misura"])
         y_test = df["valore"]
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         x_test = df.drop(columns=[  "data",
                                     "stazione_appa",
                                     "pm10_(ug.m-3)",
@@ -332,7 +332,7 @@ def predict(model, df: pd.DataFrame):
     # Plot evaluation ==========================================================
     if CONFIG["dataset"] == "v1_day":
         plot_evaluation(df["stazione"], df["data"], y_test, preds)
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         plot_evaluation(df["stazione_appa"], df["data"], y_test, preds)
 
     # save predictions to csv
@@ -344,7 +344,7 @@ def predict(model, df: pd.DataFrame):
             "actual": y_test,
             "predicted": preds
         })
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         predictions_df = pd.DataFrame({
             "model_type": CONFIG["model_type"],
             "stazione": df["stazione_appa"],
@@ -540,7 +540,7 @@ def predict_windows(model, window_df: pd.DataFrame):
                                             "veneto_ma_18_max_lon",
                                             "veneto_ma_18_unità di misura"])
         y_test = window_df["valore"]
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         x_test = window_df.drop(columns=["data",
                                          "stazione_appa",
                                          "pm10_(ug.m-3)",
@@ -680,7 +680,7 @@ def predict_windows(model, window_df: pd.DataFrame):
     # Plot evaluation for the window ===========================================
     if CONFIG["dataset"] == "v1_day":
         plot_evaluation(window_df["stazione"], window_df["data"], y_test, preds)
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         plot_evaluation(window_df["stazione_appa"], window_df["data"], y_test, preds)
 
     # save predictions to csv
@@ -692,7 +692,7 @@ def predict_windows(model, window_df: pd.DataFrame):
             "actual": y_test,
             "predicted": preds
         })
-    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+    elif CONFIG["dataset"] == "merged_appa_eea_by_proximity_v4" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5" or CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
         predictions_df = pd.DataFrame({
             "model_type": CONFIG["model_type"],
             "stazione": window_df["stazione_appa"],

@@ -14,7 +14,8 @@ def load_data(dataset_version: str) -> pd.DataFrame:
     dataset_file_ids = {
         "v1_day": "1EIqZAUtGsOI4ekDLiRoYPfLzY-vO-hfw",
         "merged_appa_eea_by_proximity_v4": "1eN3HaJX2Y9Ot_7GUW13MNh5wLfqvJewV",
-        "merged_appa_eea_by_proximity_v5": "1iIOLm-jpBpZWl9kkKVxhFD1H3rrUgw1k"
+        "merged_appa_eea_by_proximity_v5": "1iIOLm-jpBpZWl9kkKVxhFD1H3rrUgw1k",
+        "merged_appa_eea_by_proximity_v5.5": "1tYNhoLd_bTlhWgjwyMBnQD9OGjSedFHv"
     }
 
     file_id = dataset_file_ids.get(dataset_version)
