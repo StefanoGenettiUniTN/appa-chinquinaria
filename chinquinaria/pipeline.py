@@ -54,6 +54,7 @@ def run_pipeline():
 
     windows: List[pd.DataFrame] = create_time_windows(test_df, CONFIG["window_size_months"])
     window_summaries = []
+    shap_texts = []
     
     if CONFIG["debug"]:
         logger.debug(f"Number of time windows created: {len(windows)}")
@@ -103,6 +104,7 @@ def run_pipeline():
             shap_file.write(shap_text)
             shap_file.close()
 
+            shap_texts.append(shap_text)
             summary_text = summarize_shap(shap_text)
 
             if CONFIG["debug"]:
@@ -117,7 +119,8 @@ def run_pipeline():
         window_summaries.append(summary_text)
 
     logger.info("Generating final report...")
-    final_report = generate_final_essay(window_summaries)
+    shap_corpus_text = "\n\n".join(shap_texts) if shap_texts else None
+    final_report = generate_final_essay(window_summaries, shap_data=shap_corpus_text)
 
     final_report_file_name = "final_report.txt"
     final_report_file_path = CONFIG["output_path"] / final_report_file_name
