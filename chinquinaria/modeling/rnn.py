@@ -19,7 +19,7 @@ try:
     from pytorch_forecasting import Baseline, TimeSeriesDataSet
     from pytorch_forecasting.models.nn import LSTM, MultiEmbedding
     from pytorch_forecasting.models.base import AutoRegressiveBaseModelWithCovariates
-    from pytorch_forecasting.metrics import MAE, SMAPE, MultivariateNormalDistributionLoss
+    from pytorch_forecasting.metrics import MAE, RMSE
     #print("\n\nEverything imported smoothly. Proceed to class declaration...\n\n")
 except Exception as e:
     raise ImportError(f"Import failed, check out src. Error: {e}")

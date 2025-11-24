@@ -38,42 +38,13 @@ def predict(model, df: pd.DataFrame, type):
             logger.info("Dataset preprocessing DONE")
             # Execute the model prediction =============================================
             start_time = time.time()
-            predictions_for_mae = model.predict(
-                df_dataloader,
-                return_y=True,
-                trainer_kwargs=dict(accelerator=CONFIG_RNN["accelerator"]),
-            )
-            end_time = time.time()
-
-            # Evaluate predictions =====================================================
-            device = predictions_for_mae.output.device
-            target = predictions_for_mae.y
-            if isinstance(target, tuple):
-                target = target[0]
-            mae_metric = MAE().to(device)(predictions_for_mae.output, target.to(device))
-            testing_performance = dict(
-                mae=mae_metric,
-            )
-            logger.info(f"Validation performance: {testing_performance}")
-            # save performance to csv using pandas with columns
-            performance_df = pd.DataFrame([{
-                "model_type": CONFIG["model_type"],
-                "start_date": df_processed["data"].min(),
-                "end_date": df_processed["data"].max(),
-                "mae": testing_performance["mae"],
-                #"rmse": testing_performance["rmse"],
-                #"dtw": testing_performance["dtw"],
-                "execution_time_seconds": round(end_time - start_time, 3)
-            }])
-            performance_file_path = CONFIG["output_path"] / f"validation_{df_processed['data'].min().strftime('%Y%m%d')}_to_{df_processed['data'].max().strftime('%Y%m%d')}.csv"
-            performance_df.to_csv(performance_file_path, index=False)
-            # save predictions to csv ===================================================
             raw_predictions = model.predict(
                 df_dataloader,
                 mode="raw",
                 return_x=True,
                 trainer_kwargs=dict(accelerator=CONFIG_RNN["accelerator"]),
             )
+            end_time = time.time()
             full_predictions_df = LSTModel.build_full_length_prediction_frame(
                 raw_predictions,
                 dataset,
@@ -83,6 +54,20 @@ def predict(model, df: pd.DataFrame, type):
             predictions_file_name = f"{type}_{df_processed['data'].min().strftime('%Y%m%d')}_to_{df_processed['data'].max().strftime('%Y%m%d')}.csv"
             predictions_file_path = CONFIG["output_path"] / predictions_file_name
             full_predictions_df.to_csv(predictions_file_path, index=False)
+            # Evaluate predictions =====================================================
+            df_performance = evaluate_predictions(full_predictions_df["PM10_(ug_m-3)"], full_predictions_df["prediction"])
+            performance_df = pd.DataFrame([{
+                "model_type": CONFIG["model_type"],
+                "start_date": df_processed["data"].min(),
+                "end_date": df_processed["data"].max(),
+                "mae": df_performance["mae"],
+                "rmse": df_performance["rmse"],
+                "dtw": df_performance["dtw"],
+                "execution_time_seconds": round(end_time - start_time, 3)
+            }])
+            performance_file_path = CONFIG["output_path"] / f"{type}_{df_processed['data'].min().strftime('%Y%m%d')}_to_{df_processed['data'].max().strftime('%Y%m%d')}.csv"
+            performance_df.to_csv(performance_file_path, index=False)
+
             return full_predictions_df
 
     else:

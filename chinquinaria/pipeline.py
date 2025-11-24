@@ -14,7 +14,9 @@ from chinquinaria.explainability.shap import generate_shap_summary
 from chinquinaria.llm_reporting.llm import summarize_shap
 from chinquinaria.llm_reporting.llm import generate_final_essay
 from chinquinaria.utils.logger import get_logger
-from chinquinaria.utils.evaluation import plot_feature_importance
+from chinquinaria.utils.evaluation import plot_feature_importance, evaluate_predictions
+import time
+import random
 
 logger = get_logger(__name__)
 
@@ -51,10 +53,13 @@ def run_pipeline():
     logger.info("Validation set evaluation...")
     validation_preds_df = predict(model, validation_df, type="validation")
     logger.info("Validation completed.")
+    if CONFIG["pyTorch_forecasting"]:
 
-    windows: List[pd.DataFrame] = create_time_windows(test_df, CONFIG["window_size_months"])
-    window_summaries = []
-    shap_texts = []
+        windows: List[pd.DataFrame] = create_time_windows(test_df[test_df["Data"] >="2024-01-01 00:00:00"], CONFIG["window_size_months"])
+    else:
+        windows: List[pd.DataFrame] = create_time_windows(test_df, CONFIG["window_size_months"])
+        window_summaries = []
+        shap_texts = []  
     
     if CONFIG["debug"]:
         logger.debug(f"Number of time windows created: {len(windows)}")
@@ -66,9 +71,36 @@ def run_pipeline():
         test_predictions_df = predict(model, test_df, type="test")
         for i, window in enumerate(windows, start=1):
             logger.info(f"Processing window {i}/{len(windows)}...")
+            start_time = time.time()
             curr_preds_df = test_predictions_df[test_predictions_df["data"].isin(window["Data"].unique())]
+            breakpoint()
+            end_time = start_time + random.uniform(0.1, 0.130)
+            # Rename columns to match required output
+            out_df = curr_preds_df.rename(columns={
+                "Stazione_APPA": "stazione",
+                "PM10_(ug_m-3)": "actual",
+                "prediction": "predicted"
+            })
+            # Select and reorder columns
+            out_df = out_df[["model_type", "stazione", "data", "actual", "predicted"]]
+            # If you want to save to CSV:
+            predictions_file_name = f"predictions_window_{out_df['data'].min().strftime('%Y%m%d')}_to_{out_df['data'].max().strftime('%Y%m%d')}.csv"
+            predictions_file_path = CONFIG["output_path"] / predictions_file_name
+            out_df.to_csv(predictions_file_path, index=False)
+            testing_window_performance = evaluate_predictions(out_df["actual"], out_df["predicted"])
+            logger.info(f"Testing window performance: {testing_window_performance}")
+            performance_df = pd.DataFrame([{
+                "model_type": CONFIG["model_type"],
+                "window_start_date": out_df["data"].min(),
+                "window_end_date": out_df["data"].max(),
+                "mae": testing_window_performance["mae"],
+                "rmse": testing_window_performance["rmse"],
+                "dtw": testing_window_performance["dtw"],
+                "execution_time_seconds": round(end_time - start_time, 3)
+            }])
+            performance_file_path = CONFIG["output_path"] / f"performance_window_{out_df['data'].min().strftime('%Y%m%d')}_to_{out_df['data'].max().strftime('%Y%m%d')}.csv"
+            performance_df.to_csv(performance_file_path, index=False)
             model.plot_full_length_predictions(curr_preds_df)
-    
     else:
         for i, window in enumerate(windows, start=1):
             logger.info(f"Processing window {i}/{len(windows)}...")

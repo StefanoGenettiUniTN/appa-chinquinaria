@@ -58,8 +58,8 @@ CONFIG = {
     "start_testing_date": "2023-12-02",
     "end_testing_date": "2025-01-01",
     "window_size_months": 1,
-    "model_type": "xgboost", # "xgboost" or "lightgbm" or "mlp" or "random_forest" (not implemented) or "eldt" (not implemented) or "lstm"
-    "pyTorch_forecasting":False, # True if "model_type" is in ["lstm",] otherwise False
+    "model_type": "lstm", # "xgboost" or "lightgbm" or "mlp" or "random_forest" (not implemented) or "eldt" (not implemented) or "lstm"
+    "pyTorch_forecasting":True, # True if "model_type" is in ["lstm",] otherwise False
     "llm_type": "fake",  # "open_source" or "proprietary" or "fake"
     "endpoint": "https://models.inference.ai.azure.com",
     "token": os.environ.get('GITHUB_TOKEN'),

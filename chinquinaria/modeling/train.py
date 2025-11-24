@@ -419,22 +419,8 @@ def train_model(train_df: pd.DataFrame, pyTorch_forecasting: bool = False):
         raise ValueError(f"Unsupported model type: {CONFIG['model_type']}")
 
     if CONFIG["pyTorch_forecasting"]:
-        # Evaluate training performance ========================================
-        logger.info("Evaluating training performance...")
-        mae_metric = model.get_val_loss(val_dataloader)
-        logger.info(f"MAE metric: {mae_metric}")
-        # save training performance to csv using pandas with columns
-        performance_df = pd.DataFrame([{
-            "model_type": CONFIG["model_type"],
-            "mae": mae_metric,
-            #"rmse": training_performance["rmse"],
-            #"dtw": training_performance["dtw"],
-            "execution_time_seconds": round(end_time - start_time, 3)
-        }])
-        performance_file_path = CONFIG["output_path"] / "training_performance.csv"
-        performance_df.to_csv(performance_file_path, index=False)
         # Skipping plot training for lstm
-        if CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5":
+        if CONFIG["dataset"] == "merged_appa_eea_by_proximity_v5.5":
             raw_predictions_on_train = model.predict(
                 train_dataloader,
                 mode="raw",
@@ -449,6 +435,19 @@ def train_model(train_df: pd.DataFrame, pyTorch_forecasting: bool = False):
             full_predictions_df["model_type"] = CONFIG["model_type"]
             training_predictions_file_path = CONFIG["output_path"] / "training_predictions.csv"
             full_predictions_df.to_csv(training_predictions_file_path, index=False)
+                    # Evaluate training performance ========================================
+            logger.info("Evaluating training performance...")
+            training_performance = evaluate_predictions(full_predictions_df["PM10_(ug_m-3)"], full_predictions_df["prediction"])
+            # save training performance to csv using pandas with columns
+            performance_df = pd.DataFrame([{
+                    "model_type": CONFIG["model_type"],
+                    "mae": training_performance["mae"],
+                    "rmse": training_performance["rmse"],
+                    "dtw": training_performance["dtw"],
+                    "execution_time_seconds": round(end_time - start_time, 3)
+                }])
+            performance_file_path = CONFIG["output_path"] / "training_performance.csv"
+            performance_df.to_csv(performance_file_path, index=False)
         return model
     else:
         # Evaluate training performance ========================================
