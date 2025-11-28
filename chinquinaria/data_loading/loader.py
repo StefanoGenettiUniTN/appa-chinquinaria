@@ -15,7 +15,8 @@ def load_data(dataset_version: str) -> pd.DataFrame:
         "v1_day": "1EIqZAUtGsOI4ekDLiRoYPfLzY-vO-hfw",
         "merged_appa_eea_by_proximity_v4": "1eN3HaJX2Y9Ot_7GUW13MNh5wLfqvJewV",
         "merged_appa_eea_by_proximity_v5": "1iIOLm-jpBpZWl9kkKVxhFD1H3rrUgw1k",
-        "merged_appa_eea_by_proximity_v5.5": "1tYNhoLd_bTlhWgjwyMBnQD9OGjSedFHv"
+        "merged_appa_eea_by_proximity_v5.5": "1tYNhoLd_bTlhWgjwyMBnQD9OGjSedFHv",
+        "pm10_era5_land_era5_reanalysis_blh_final": "-"
     }
 
     file_id = dataset_file_ids.get(dataset_version)
@@ -23,6 +24,9 @@ def load_data(dataset_version: str) -> pd.DataFrame:
         raise ValueError(f"Unknown dataset version: {dataset_version}")
 
     # Load the dataset from Google Drive
-    df = pd.read_csv(f"https://drive.google.com/uc?id={file_id}")
+    if dataset_version == "pm10_era5_land_era5_reanalysis_blh_final":
+        df = pd.read_csv("data/pm10_era5_land_era5_reanalysis_blh_final.csv")
+    else:
+        df = pd.read_csv(f"https://drive.google.com/uc?id={file_id}")
 
     return df

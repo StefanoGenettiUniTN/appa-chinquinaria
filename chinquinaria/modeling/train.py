@@ -12,6 +12,7 @@ from chinquinaria.modeling.lightgbm import LightGBMModel
 from chinquinaria.modeling.mlp import TorchMLPModel
 from chinquinaria.modeling.rnn import (
     create_ts_dataset_with_covariates_for_V5_5,
+    create_ts_dataset_with_covariates_for_hourly,
     LSTModel, CONFIG_RNN,
 ) 
 from chinquinaria.modeling.random_forest import RandomForestModel
@@ -37,8 +38,8 @@ def train_model(train_df: pd.DataFrame, pyTorch_forecasting: bool = False):
                         train_df_processed,
                         max_encoder_length=CONFIG_RNN["max_encoder_length"],
                         max_prediction_length=CONFIG_RNN["max_prediction_length"],
-                        val=True,
-                        test=False,
+                        val=CONFIG_RNN["val"],
+                        test=CONFIG_RNN["test"],
                         preprocess=False,
                 )
                 print("\n\nSwitching data to dataloaders for training...\n\n")
@@ -46,6 +47,36 @@ def train_model(train_df: pd.DataFrame, pyTorch_forecasting: bool = False):
                 train_dataloader = training.to_dataloader(
                     train=True, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
                 )
+                val_dataloader = validation.to_dataloader(
+                    train=False, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
+                )
+                logger.info("Training preprocessing DONE")
+        elif CONFIG["dataset"] == "pm10_era5_land_era5_reanalysis_blh_final":
+                train_df_processed = train_df.copy()
+                print("1")
+                train_df_processed["data"] = pd.to_datetime(train_df_processed["Data"], format="%Y-%m-%d %H:%M:%S")
+                print("2")
+                train_df_processed.sort_values("Data", inplace=True)
+                print("3")
+                train_df_processed["time_idx"] = train_df_processed.groupby("Stazione_APPA").cumcount()
+                print("4")
+                train_df_processed.columns = train_df_processed.columns.str.replace('.', '_', regex=False)
+                print("5")
+                training, validation = create_ts_dataset_with_covariates_for_hourly(
+                        train_df_processed,
+                        max_encoder_length=CONFIG_RNN["max_encoder_length"],
+                        max_prediction_length=CONFIG_RNN["max_prediction_length"],
+                        val=CONFIG_RNN["val"],
+                        test=CONFIG_RNN["test"],
+                        preprocess=False,
+                )
+                print("\n\nSwitching data to dataloaders for training...\n\n")
+                batch_size = 128
+                print("6")
+                train_dataloader = training.to_dataloader(
+                    train=True, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
+                )
+                print("7")
                 val_dataloader = validation.to_dataloader(
                     train=False, batch_size=batch_size, num_workers=CONFIG_RNN["num_of_workers"]
                 )
