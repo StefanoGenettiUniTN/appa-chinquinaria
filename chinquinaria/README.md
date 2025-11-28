@@ -1,0 +1,106 @@
+
+# Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- For ERA5 data downloads: [CDS API credentials](https://cds.climate.copernicus.eu/api-how-to)
+
+### Installation
+
+1. Clone the repository
+   ```bash
+   cd appa-chinquinaria
+   ```
+
+2. Create and activate a virtual environment (recommended)
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Configure CDS API (for ERA5 data only)
+   
+   Create the file `~/.cdsapirc` with your Copernicus credentials:
+   ```
+   url: https://cds.climate.copernicus.eu/api
+   key: YOUR_API_KEY
+   ```
+
+5. Create a `.env` file (required for proprietary LLM use)
+
+   If you plan to use a proprietary LLM (GPT-4.1), you must provide an access token. In the root directory of the project, create a file named `.env` containing:
+   ```
+   GITHUB_TOKEN=your_personal_access_token_here
+   ```
+
+## Usage
+
+### Execute complete pipeline
+To execute the complete pipeline, set your configuration in `chinquinaria/config.py` and run:
+```bash
+python -m chinquinaria.pipeline
+```
+
+# Chinquinaria Pipeline
+
+This directory contains the automated pipeline for analyzing the importance of environmental variables using baseline models, automated SHAP execution, and report generation via LLM. The project is an integral part of the root project, focused on studying the factors that influence air quality.
+
+## Pipeline Structure
+
+The pipeline consists of the following main modules:
+
+- **data_loading/**: Data loading and pre-processing.
+- **modeling/**: Implementation of baseline models (XGBoost, LightGBM, MLP, Random Forest, LSTM) and training/prediction functions.
+- **explainability/**: Feature importance calculation using SHAP.
+- **llm_reporting/**: Automated textual report generation via LLM.
+- **utils/**: Support functions (logging, evaluation, file I/O).
+- **pipeline.py**: End-to-end orchestration script.
+
+## Objectives
+
+- Evaluate the importance of environmental variables using baseline models.
+- Automate SHAP analysis for interpretability.
+- Generate textual reports via LLM for synthesis and communication of results.
+
+## Execution Instructions
+
+1. **Configuration**
+   - Edit parameters in the `config.py` file to select dataset, time intervals, model, and output options.
+   - Ensure data paths and output directories are correct.
+
+2. **Install dependencies**
+   - Install required dependencies using the `requirements.txt` file in the project root:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+3. **Run the pipeline**
+   - Start the pipeline with the command:
+     ```bash
+     python chinquinaria/pipeline.py
+     ```
+   - The pipeline executes in sequence:
+     - Data loading and splitting
+     - Model training
+     - Prediction and metric calculation
+     - Automated SHAP analysis
+     - LLM report generation
+     - Saving results and reports in the output directory
+
+4. **Output**
+   - Results (predictions, feature importance, textual reports) are saved in the directory specified in `config.py`.
+   - Log files and intermediate reports are available for detailed analysis.
+
+## Additional Notes
+
+- The pipeline supports both traditional and deep learning models (LSTM) via PyTorch Forecasting.
+- Automated SHAP execution enables robust evaluation of variable importance.
+- The LLM module generates synthetic and customized textual reports for each analyzed time window.
+
+For further details on configuration options and advanced features, refer to the main project README.
