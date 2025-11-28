@@ -11,7 +11,7 @@ This folder contains Jupyter notebooks designed for interactive exploration, vis
   - Generate plots, maps, and time series to understand trends, distributions, and spatial patterns in the data.
 
 - **Model Prototyping:**
-  - Experiment with machine learning models (e.g., LightGBM, LSTM) on sample datasets, tune parameters, and interpret results.
+  - Experiment with machine learning models (e.g., LightGBM) on sample datasets, tune parameters, and interpret results.
 
 - **Station and Coverage Analysis:**
   - Analyze historic station data, coverage, and variable distributions across regions and time periods.

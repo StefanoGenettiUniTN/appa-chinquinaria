@@ -10,6 +10,7 @@ This directory contains a comprehensive suite of Python scripts for the APPA Chi
 - Statistical analysis, correlation studies, and coverage assessment.
 - Generation of curated datasets for modeling and reporting.
 - Visualization and plotting of time series and curated data.
+
 ## Structure
 
 - **download_from_csv.py**  
@@ -39,6 +40,8 @@ This directory contains a comprehensive suite of Python scripts for the APPA Chi
   - `filter_eea_by_proximity.py`: Filters EEA air quality data based on spatial proximity to target locations.
   - `merge_appa_meteo_trentino.py`: Merges APPA air quality data with Meteo Trentino meteorological data for integrated analysis.
   - `merge_datasets_by_proximity.py`: Merges datasets using spatial proximity logic, useful for combining heterogeneous sources.
+
+and more...
 
 ## Main Operations
 

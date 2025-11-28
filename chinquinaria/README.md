@@ -3,8 +3,7 @@
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- For ERA5 data downloads: [CDS API credentials](https://cds.climate.copernicus.eu/api-how-to)
+- Python 3.10 or higher
 
 ### Installation
 
@@ -22,14 +21,6 @@
 3. Install dependencies
    ```bash
    pip install -r requirements.txt
-   ```
-
-4. Configure CDS API (for ERA5 data only)
-   
-   Create the file `~/.cdsapirc` with your Copernicus credentials:
-   ```
-   url: https://cds.climate.copernicus.eu/api
-   key: YOUR_API_KEY
    ```
 
 5. Create a `.env` file (required for proprietary LLM use)
@@ -70,30 +61,14 @@ The pipeline consists of the following main modules:
 
 ## Execution Instructions
 
-1. **Configuration**
-   - Edit parameters in the `config.py` file to select dataset, time intervals, model, and output options.
-   - Ensure data paths and output directories are correct.
-
-2. **Install dependencies**
-   - Install required dependencies using the `requirements.txt` file in the project root:
-     ```bash
-     pip install -r requirements.txt
-     ```
-
-3. **Run the pipeline**
-   - Start the pipeline with the command:
-     ```bash
-     python chinquinaria/pipeline.py
-     ```
-   - The pipeline executes in sequence:
+The **pipeline executes in sequence**:
      - Data loading and splitting
      - Model training
      - Prediction and metric calculation
      - Automated SHAP analysis
      - LLM report generation
      - Saving results and reports in the output directory
-
-4. **Output**
+**Output**
    - Results (predictions, feature importance, textual reports) are saved in the directory specified in `config.py`.
    - Log files and intermediate reports are available for detailed analysis.
 

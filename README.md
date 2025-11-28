@@ -12,12 +12,12 @@
 
 This framework was developed within the scope of the **Public AI Challenge**, an open innovation initiative designed to apply artificial intelligence to real-world problems in the public sector. The project is the result of a strategic collaboration between **Hub Innovazione Trentino (HIT)**, the **University of Trento**, and the **Autonomous Province of Trento**.
 
-The primary objective was to design and implement a robust analytical pipeline for the forecasting and explainability of air quality data, specifically addressing the operational needs of the **Provincial Agency for Environmental Protection (APPA)**.
+The primary objective was to design and implement a robust analytical pipeline for the forecasting and explainability of air quality data, specifically addressing the operational needs of the **Agenzia provinciale per la protezione dell'ambiente (APPA)**.
 
 ### The Initiative
 
 **Public AI Challenge**
-The [Public AI Challenge](https://www.trentinoinnovation.eu/innovate/innovation-tools/public-ai-challenge/?lang=en) is an open innovation program that connects public administrations with the research ecosystem to solve complex challenges using advanced data science and machine learning techniques. In this specific iteration, the challenge focused on developing predictive models for environmental monitoring, requiring the integration of heterogeneous data sources and the application of explainable AI (XAI) methodologies to support decision-making processes.
+The [Public AI Challenge](https://www.trentinoinnovation.eu/innovate/innovation-tools/public-ai-challenge/?lang=en) is an open innovation program that connects public administrations with the research ecosystem to solve complex challenges using advanced data science and machine learning techniques. In this specific iteration, the challenge assigned to us focused on developing predictive models for environmental monitoring, requiring the integration of heterogeneous data sources and the application of explainable AI methodologies to support decision-making processes.
 
 **Hub Innovazione Trentino (HIT)**
 [HIT](https://www.trentinoinnovation.eu/) is a foundation dedicated to promoting technology transfer and innovation in the Trentino region. Acting as a bridge between scientific research and the market, HIT valorizes the results of its founding members—including the University of Trento and Fondazione Bruno Kessler—to foster economic and social development. In this project, HIT facilitated the definition of the challenge and the coordination between the research team and the public stakeholder.
@@ -50,7 +50,8 @@ This folder contains a comprehensive suite of Python scripts for data acquisitio
   * Statistical analysis, correlation studies, and coverage assessment.
   * Generation of curated datasets and visualizations for modeling and reporting.
 
-Refer to `scripts/README.md` for a detailed guide to individual scripts and their usage.
+Refer to `scripts/README.md` for a detailed descriptions to scripts and their usage.
+Refer to  `docs/<scripts_name>.md` for detailed guides on how to utilisise the scripts.
 
 ### 2\. Notebooks
 
@@ -95,7 +96,7 @@ The framework relies on a specific set of data providers to model the environmen
 
 ### Prerequisites
 
-  * Python 3.8 or higher.
+  * Python 3.10 or higher.
   * Virtual environment (recommended).
   * API Credentials for Copernicus CDS (if downloading ERA5 data).
 
