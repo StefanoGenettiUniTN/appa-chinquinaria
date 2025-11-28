@@ -12,6 +12,14 @@ Each archive contains four CSV members:
     - 2m temperature → columns: valid_time, t2m, latitude, longitude
     - radiation     → columns: valid_time, ssrd, latitude, longitude
     - pressure/precip → columns: valid_time, sp, tp, latitude, longitude
+    
+    Column names are expanded to readable forms:
+    - t2m → temperature_2m
+    - sp → surface_pressure
+    - tp → total_precipitation
+    - ssrd → solar_radiation_downwards
+    - u10 → wind_u_10m
+    - v10 → wind_v_10m
 
 This script:
     1. Reads the station metadata from `era5_land_timeseries_stations.csv`.
@@ -26,8 +34,12 @@ This script:
 
 The final dataset is in "long" format with columns:
 
-    datetime, station_code, station_name, region, latitude, longitude,
-    t2m, sp, tp, ssrd, u10, v10
+    datetime, station_code,
+    temperature_2m, surface_pressure, total_precipitation,
+    solar_radiation_downwards, wind_u_10m, wind_v_10m
+
+Static station metadata (region, station_name, station_latitude, station_longitude,
+model_latitude, model_longitude) is saved to a separate CSV file.
 
 Usage example:
 
@@ -123,7 +135,8 @@ def aggregate_single_file(path: Path) -> pd.DataFrame:
     Aggregate all CSV members inside one ERA5-Land timeseries ZIP file into a
     single dataframe with columns:
 
-        valid_time, t2m, sp, tp, ssrd, u10, v10, latitude, longitude
+        valid_time, temperature_2m, surface_pressure, total_precipitation,
+        solar_radiation_downwards, wind_u_10m, wind_v_10m, latitude, longitude
     """
     with zipfile.ZipFile(path, "r") as zf:
         members = zf.namelist()
@@ -142,6 +155,16 @@ def aggregate_single_file(path: Path) -> pd.DataFrame:
             if "longitude" in df.columns:
                 keep_cols.append("longitude")
             df = df[keep_cols].copy()
+            # Rename weather variable columns to more readable names
+            var_rename = {
+                "t2m": "temperature_2m",
+                "sp": "surface_pressure",
+                "tp": "total_precipitation",
+                "ssrd": "solar_radiation_downwards",
+                "u10": "wind_u_10m",
+                "v10": "wind_v_10m",
+            }
+            df = df.rename(columns=var_rename)
             dfs.append(df)
 
         # Merge all member dataframes on valid_time
@@ -177,15 +200,41 @@ def main() -> None:
 
     stations_meta = load_stations_metadata(stations_csv)
 
+    # Exclude stations with too little PM10 data from the curated ERA5-Land dataset.
+    # These stations (AB3, CR2) were removed in the PM10 curation and must also be
+    # excluded here so that the ERA5-Land dataset is consistent with the PM10 data.
+    excluded_station_codes = {"AB3", "CR2"}
+    if not excluded_station_codes.isdisjoint(set(stations_meta["station_code"].astype(str))):
+        before_meta = len(stations_meta)
+        stations_meta = stations_meta[
+            ~stations_meta["station_code"].astype(str).isin(excluded_station_codes)
+        ].copy()
+        after_meta = len(stations_meta)
+        print(
+            f"Filtered stations metadata: removed {before_meta - after_meta} stations "
+            f"with station_code in {sorted(excluded_station_codes)}."
+        )
+
     # Support both legacy .csv (ZIP) files and new .zip files
     files_zip = list(in_dir.glob("era5_land_timeseries_*.zip"))
     files_csv = list(in_dir.glob("era5_land_timeseries_*.csv"))
     files = sorted({p for p in files_zip + files_csv})
+    
+    # Filter out files corresponding to excluded station codes
+    files_filtered = []
+    for path in files:
+        station_code = station_code_from_filename(path)
+        if station_code not in excluded_station_codes:
+            files_filtered.append(path)
+        else:
+            print(f"[SKIP] Excluding file for station_code={station_code}: {path.name}")
+    files = files_filtered
+    
     if not files:
-        print("No files matching 'era5_land_timeseries_*.zip' or '*.csv' found in input directory.")
+        print("No files matching 'era5_land_timeseries_*.zip' or '*.csv' found in input directory (after filtering).")
         sys.exit(0)
 
-    print(f"Found {len(files)} per-station files.")
+    print(f"Found {len(files)} per-station files (after filtering excluded stations).")
 
     all_rows: List[pd.DataFrame] = []
 
@@ -231,26 +280,52 @@ def main() -> None:
 
     df_all = pd.concat(all_rows, ignore_index=True)
 
-    # Reorder columns to a sensible order
-    desired_cols = [
-        "datetime",
+    # Make column names more descriptive/readable
+    rename_map = {
+        "latitude_meta": "station_latitude",
+        "longitude_meta": "station_longitude",
+        "latitude": "model_latitude",
+        "longitude": "model_longitude",
+    }
+    df_all = df_all.rename(columns=rename_map)
+
+    # Separate static (invariant) columns from time-varying columns
+    static_cols = [
         "region",
         "station_code",
         "station_name",
-        "latitude_meta",
-        "longitude_meta",
-        "latitude",
-        "longitude",
-        "t2m",
-        "sp",
-        "tp",
-        "ssrd",
-        "u10",
-        "v10",
+        "station_latitude",
+        "station_longitude",
+        "model_latitude",
+        "model_longitude",
     ]
-    cols_existing = [c for c in desired_cols if c in df_all.columns]
-    other_cols = [c for c in df_all.columns if c not in cols_existing]
-    df_all = df_all[cols_existing + other_cols]
+    time_varying_cols = [
+        "datetime",
+        "temperature_2m",
+        "surface_pressure",
+        "total_precipitation",
+        "solar_radiation_downwards",
+        "wind_u_10m",
+        "wind_v_10m",
+    ]
+    
+    # Get actual static columns that exist
+    static_cols_existing = [c for c in static_cols if c in df_all.columns]
+    # Get time-varying columns that exist
+    time_varying_cols_existing = [c for c in time_varying_cols if c in df_all.columns]
+    # Get any other columns (shouldn't be many, but handle gracefully)
+    other_cols = [c for c in df_all.columns if c not in static_cols_existing + time_varying_cols_existing]
+    
+    # Create static metadata DataFrame (one row per station)
+    if static_cols_existing:
+        static_df = df_all[static_cols_existing].drop_duplicates(subset=["station_code"]).sort_values("station_code").reset_index(drop=True)
+        static_output = output.parent / f"{output.stem}_stations_metadata.csv"
+        static_df.to_csv(static_output, index=False)
+        print(f"\nSaved static station metadata ({len(static_df)} stations) to: {static_output}")
+    
+    # Keep only time-varying columns in main dataset
+    main_cols = time_varying_cols_existing + ["station_code"] + other_cols
+    df_all = df_all[main_cols]
 
     # Sort by station and datetime
     df_all = df_all.sort_values(["station_code", "datetime"]).reset_index(drop=True)
@@ -258,6 +333,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     df_all.to_csv(output, index=False)
     print(f"\nSaved aggregated dataset with {len(df_all):,} rows to: {output}")
+    print(f"   Columns: {', '.join(df_all.columns)}")
 
 
 if __name__ == "__main__":

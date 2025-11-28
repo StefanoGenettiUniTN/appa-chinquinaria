@@ -21,6 +21,42 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points on Earth using Haversine formula."""
+    R = 6371.0  # Earth radius in kilometers
+    lat1_rad = np.radians(lat1)
+    lon1_rad = np.radians(lon1)
+    lat2_rad = np.radians(lat2)
+    lon2_rad = np.radians(lon2)
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    return R * c
+
+
+def calculate_distance_matrix(stations_df):
+    """Calculate distance matrix between stations in kilometers."""
+    n_stations = len(stations_df)
+    distance_matrix = {}
+    station_codes = stations_df["station_code"].values
+
+    for i in range(n_stations):
+        for j in range(n_stations):
+            if i == j:
+                distance_matrix[(station_codes[i], station_codes[j])] = 0.0
+            else:
+                lat1 = stations_df.iloc[i]["latitude"]
+                lon1 = stations_df.iloc[i]["longitude"]
+                lat2 = stations_df.iloc[j]["latitude"]
+                lon2 = stations_df.iloc[j]["longitude"]
+                distance_matrix[(station_codes[i], station_codes[j])] = haversine_distance(
+                    lat1, lon1, lat2, lon2
+                )
+
+    return distance_matrix
+
+
 def find_contiguous_missing_periods(actual_times_set, expected_times):
     """
     Find all contiguous missing periods and return their start/end indices.
@@ -355,7 +391,6 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
     
     # Reorder columns to match original format
     result_df = result_df[['datetime', 'station_code', 'station_name', 'pm10']]
-    
     print(f"   Final gaps interpolated in this pass: {final_total_interpolated:,} hours")
     print(f"   Final values interpolated in this pass: {final_total_actual_interpolated:,}")
     
@@ -363,7 +398,152 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
     total_actual_interpolated = first_pass_interpolated + final_total_actual_interpolated
     
     # ============================================================================
-    # Step 9: Save curated dataset
+    # Step 9: Additional gap filling using nearby stations and distance-weighted interpolation
+    # ============================================================================
+    print(f"\n9. Additional gap filling using nearby stations and distance-weighted interpolation...")
+    
+    # Load station coordinates
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent
+    stations_file = project_root / "data" / "arpav" / "PM10" / "pm10_stations.csv"
+    print(f"   Loading station coordinates from: {stations_file}")
+    stations_df = pd.read_csv(stations_file)
+    
+    # Ensure station_code types are consistent
+    stations_df["station_code"] = stations_df["station_code"].astype(int)
+    result_df["station_code"] = result_df["station_code"].astype(int)
+    
+    # Build complete time grid 2014-01-01 to 2024-12-31 for all stations
+    global_start = pd.Timestamp("2014-01-01 00:00:00")
+    global_end = pd.Timestamp("2024-12-31 23:00:00")
+    all_datetimes = pd.date_range(start=global_start, end=global_end, freq="h")
+    print(f"   Expected hours per station: {len(all_datetimes):,}")
+    
+    # Create complete DataFrame with all stations and all hours
+    complete_rows = []
+    for station_code in sorted(result_df["station_code"].unique()):
+        station_name = result_df[result_df["station_code"] == station_code]["station_name"].iloc[0]
+        for dt in all_datetimes:
+            complete_rows.append(
+                {
+                    "datetime": dt,
+                    "station_code": station_code,
+                    "station_name": station_name,
+                }
+            )
+    complete_df = pd.DataFrame(complete_rows)
+    
+    # Merge with existing data (this will fill in actual measurements)
+    result_df["datetime"] = pd.to_datetime(result_df["datetime"])
+    complete_df = complete_df.merge(
+        result_df[["datetime", "station_code", "pm10"]],
+        on=["datetime", "station_code"],
+        how="left",
+    )
+    
+    # Compute distance matrix
+    distance_matrix = calculate_distance_matrix(stations_df)
+    
+    # Pivot to wide format for efficient per-timestamp access
+    df_pivot = complete_df.pivot_table(
+        index="datetime",
+        columns="station_code",
+        values="pm10",
+        aggfunc="first",
+    )
+    
+    station_codes = sorted(df_pivot.columns)
+    
+    # Precompute neighbors sorted by distance for each station
+    neighbors_by_station = {}
+    for sc in station_codes:
+        dists = []
+        for other in station_codes:
+            if other == sc:
+                continue
+            key = (sc, other)
+            if key not in distance_matrix:
+                key = (other, sc)
+            dist = distance_matrix.get(key, None)
+            if dist is not None:
+                dists.append((other, dist))
+        neighbors_by_station[sc] = sorted(dists, key=lambda x: x[1])
+    
+    # Pass 1: fill using nearest station within 10 km (direct copy)
+    print("   Filling missing values using nearest station within 10 km where available...")
+    filled_from_nearest = 0
+    for dt in df_pivot.index:
+        for sc in station_codes:
+            if pd.isna(df_pivot.at[dt, sc]):
+                for other, dist in neighbors_by_station[sc]:
+                    if dist < 10.0 and not pd.isna(df_pivot.at[dt, other]):
+                        df_pivot.at[dt, sc] = df_pivot.at[dt, other]
+                        filled_from_nearest += 1
+                        break
+    print(f"   Filled {filled_from_nearest:,} values using nearest station < 10 km.")
+    
+    # Helper for distance-weighted interpolation
+    def distance_weighted_fill(target_station_code, datetime_val):
+        available = df_pivot.loc[datetime_val].dropna()
+        if target_station_code not in df_pivot.columns or available.empty:
+            return None
+        
+        distances = []
+        values = []
+        for other_sc, val in available.items():
+            if other_sc == target_station_code:
+                continue
+            key = (target_station_code, other_sc)
+            if key not in distance_matrix:
+                key = (other_sc, target_station_code)
+            dist = distance_matrix.get(key, None)
+            if dist is None:
+                continue
+            distances.append(dist)
+            values.append(val)
+        
+        if not distances:
+            return None
+        
+        scale = 50.0  # distance decay scale in km
+        scores = np.exp(-np.array(distances) / scale)
+        weights = scores / scores.sum()
+        return float(np.dot(weights, np.array(values)))
+    
+    # Pass 2: distance-weighted interpolation for remaining NaNs
+    print("   Performing distance-weighted interpolation for remaining missing values...")
+    filled_distance_weighted = 0
+    for dt in df_pivot.index:
+        for sc in station_codes:
+            if pd.isna(df_pivot.at[dt, sc]):
+                val = distance_weighted_fill(sc, dt)
+                if val is not None:
+                    df_pivot.at[dt, sc] = val
+                    filled_distance_weighted += 1
+    print(f"   Filled {filled_distance_weighted:,} values using distance-weighted interpolation.")
+    
+    # Back to long format
+    complete_df = df_pivot.reset_index().melt(
+        id_vars="datetime",
+        var_name="station_code",
+        value_name="pm10",
+    )
+    
+    # Attach station_name
+    station_names = (
+        result_df[["station_code", "station_name"]]
+        .drop_duplicates()
+        .set_index("station_code")["station_name"]
+    )
+    complete_df["station_name"] = complete_df["station_code"].map(station_names)
+    
+    # Ensure types and column order
+    complete_df["station_code"] = complete_df["station_code"].astype(int)
+    complete_df = complete_df[["datetime", "station_code", "station_name", "pm10"]]
+    result_df = complete_df.sort_values(["station_code", "datetime"]).reset_index(drop=True)
+    
+    # ============================================================================
+    # Step 10: Save curated dataset
     # ============================================================================
     # Generate output filename if not provided
     if output_file is None:
@@ -371,7 +551,7 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = input_path.parent / f"merged_pm10_hourly_curated_{timestamp}.csv"
     
-    print(f"\n9. Saving curated dataset to: {output_file}")
+    print(f"\n10. Saving curated dataset to: {output_file}")
     output_file = Path(output_file)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     result_df.to_csv(output_file, index=False)
@@ -381,14 +561,16 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
     # ============================================================================
     # Summary statistics
     # ============================================================================
-    print(f"\n10. Summary:")
+    print(f"\n11. Summary:")
     print(f"   Original dataset: {len(pd.read_csv(input_file)):,} rows")
     print(f"   Curated dataset: {len(result_df):,} rows")
     print(f"   Stations in curated dataset: {sorted(result_df['station_code'].unique())}")
     print(f"   Date range: {result_df['datetime'].min()} to {result_df['datetime'].max()}")
     print(f"   Gaps interpolated (< 4h first pass): {first_pass_interpolated:,} hours")
     print(f"   Gaps interpolated (< 2h final pass): {final_total_actual_interpolated:,} hours")
-    print(f"   Total gaps interpolated: {total_actual_interpolated:,} hours")
+    print(f"   Additional values filled (nearest <10 km): {filled_from_nearest:,}")
+    print(f"   Additional values filled (distance-weighted): {filled_distance_weighted:,}")
+    print(f"   Total gaps interpolated/filled: {total_actual_interpolated + filled_from_nearest + filled_distance_weighted:,} hours")
     print(f"   Maximum gap length interpolated: {max_gap_hours - 1} hours (first pass), 1 hour (final pass)")
     
     # Per-station summary
@@ -396,7 +578,8 @@ def create_curated_dataset(input_file, output_file=None, max_gap_hours=4):
     for station_code in sorted(result_df['station_code'].unique()):
         station_name = result_df[result_df['station_code'] == station_code]['station_name'].iloc[0]
         count = len(result_df[result_df['station_code'] == station_code])
-        print(f"     {station_code} ({station_name}): {count:,} rows")
+        missing = result_df[result_df['station_code'] == station_code]['pm10'].isna().sum()
+        print(f"     {station_code} ({station_name}): {count:,} rows, {missing:,} missing")
     
     print("\n" + "=" * 80)
     print("Dataset curation complete!")

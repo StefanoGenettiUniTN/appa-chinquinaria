@@ -45,10 +45,24 @@ except Exception:
 
 # ---- Config ----
 BASE_URL = "http://storico.meteotrentino.it"
-DEFAULT_STATIONS = "T0038,T0129,T0139"  # Sample stations
+DEFAULT_STATIONS = "T0144, "  # Sample stations
 DEFAULT_VARIABLES = "Pioggia,Temperatura aria,Umid.relativa aria,Direzione vento media,Veloc. vento media,Pressione atmosferica,Radiazione solare totale"
 STATE_FILENAME = "state.json"
 USER_AGENT = "meteo-trentino-bulk-downloader/1.0"
+VARIABLES_META_FILENAME = "variables_metadata.json"
+
+# Networking/timeouts
+HTTP_CONNECT_TIMEOUT = 20
+HTTP_READ_TIMEOUT_SHORT = 120   # HTML/XML pages
+HTTP_READ_TIMEOUT_LONG = 600   # ZIP downloads
+
+# Download generation polling (page where the ZIP link appears)
+DOWNLOAD_PAGE_MAX_WAIT_SECS = 360
+DOWNLOAD_PAGE_POLL_INTERVAL_SECS = 6
+
+# ZIP readiness polling (sometimes link exists but file not yet ready)
+ZIP_READY_MAX_WAIT_SECS = 600
+ZIP_READY_POLL_INTERVAL_SECS = 10
 
 # Wanted variables (exclude "Annale Idrologico" variants)
 WANTED_VARIABLES = {
@@ -107,6 +121,36 @@ def build_output_folder(base_out: Optional[str]) -> Path:
     return out
 
 
+def get_meteo_data_dir() -> Path:
+    """Return base data directory for Meteo Trentino artifacts."""
+    project_root = Path(__file__).parent.parent
+    return project_root / "data" / "meteo-trentino"
+
+
+def variables_metadata_path() -> Path:
+    """Return path to the variables metadata file (unfiltered)."""
+    return get_meteo_data_dir() / VARIABLES_META_FILENAME
+
+
+def load_variables_metadata() -> Optional[Dict[str, Any]]:
+    """Load variables metadata if present; returns None if missing."""
+    meta_path = variables_metadata_path()
+    if meta_path.exists():
+        with meta_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def save_variables_metadata(metadata: Dict[str, Any]) -> None:
+    """Persist variables metadata atomically."""
+    meta_path = variables_metadata_path()
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = meta_path.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2, sort_keys=True, ensure_ascii=False)
+    tmp.replace(meta_path)
+
+
 def create_session() -> requests.Session:
     """Create and configure requests session with proper cookies."""
     session = requests.Session()
@@ -151,7 +195,7 @@ def scrape_stations_from_website(session: requests.Session) -> List[Dict[str, st
     try:
         # Try to get stations from the main page or stations page
         # This is a placeholder - would need to be implemented based on the actual website structure
-        response = session.get(f"{BASE_URL}/")
+        response = session.get(f"{BASE_URL}/", timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT_SHORT))
         if response.status_code != 200:
             return []
         
@@ -178,17 +222,22 @@ def scrape_stations_from_website(session: requests.Session) -> List[Dict[str, st
         return []
 
 
-def get_all_stations(session: requests.Session) -> List[Dict[str, str]]:
-    """Get list of all available stations from the website."""
+def get_all_stations(session: requests.Session, force_hardcoded: bool = False) -> List[Dict[str, str]]:
+    """Get list of all available stations.
+
+    If force_hardcoded is True, returns the bundled hardcoded list without scraping.
+    Otherwise, tries scraping first and falls back to the hardcoded list.
+    """
     try:
-        # Try to scrape stations from the website first
-        scraped_stations = scrape_stations_from_website(session)
-        if scraped_stations:
-            print(f"Successfully scraped {len(scraped_stations)} stations from website")
-            return scraped_stations
+        if not force_hardcoded:
+            # Try to scrape stations from the website first
+            scraped_stations = scrape_stations_from_website(session)
+            if scraped_stations:
+                print(f"Successfully scraped {len(scraped_stations)} stations from website")
+                return scraped_stations
         
         # Fallback to hardcoded list if scraping fails
-        print("Using hardcoded station list (scraping failed)")
+        print("Using hardcoded station list")
         stations = [
             {'code': 'T0038', 'name': 'San Michele Alladige'},
             {'code': 'T0101', 'name': 'Zambana (Idrovora)'},
@@ -404,12 +453,17 @@ def get_all_stations(session: requests.Session) -> List[Dict[str, str]]:
         return []
 
 
-def get_station_variables(session: requests.Session, station_code: str) -> List[Dict[str, str]]:
-    """Get available variables for a specific station."""
+def get_station_variables(session: requests.Session, station_code: str, include_all: bool = False) -> List[Dict[str, str]]:
+    """Get available variables for a specific station.
+
+    When include_all is True, the returned list is unfiltered and includes all
+    variables as exposed by the station configuration (including Annale variants).
+    When False, the list is filtered by WANTED_VARIABLES and excludes Annale items.
+    """
     try:
         url = f"{BASE_URL}/wgen/cache/anon/cf{station_code}.xml"
         print(f"Fetching variables for {station_code}...")
-        response = session.get(url, timeout=(10, 30))
+        response = session.get(url, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT_SHORT))
         response.raise_for_status()
         
         # Parse XML
@@ -422,13 +476,8 @@ def get_station_variables(session: requests.Session, station_code: str) -> List[
             var_id = var_elem.attrib.get("var", "")
             unit = var_elem.attrib.get("varunits", "")
             period = var_elem.attrib.get("varperiod", "")
-            
-            # Skip "Annale Idrologico" variants
-            if "Annale" in subdesc:
-                continue
-                
-            # Only include wanted variables
-            if name in WANTED_VARIABLES:
+
+            if include_all:
                 variables.append({
                     "var": var_id,
                     "name": name,
@@ -436,7 +485,20 @@ def get_station_variables(session: requests.Session, station_code: str) -> List[
                     "period": period,
                     "subdesc": subdesc
                 })
+            else:
+                # Skip "Annale Idrologico" variants and filter by wanted variables
+                if "Annale" in subdesc:
+                    continue
+                if name in WANTED_VARIABLES:
+                    variables.append({
+                        "var": var_id,
+                        "name": name,
+                        "unit": unit,
+                        "period": period,
+                        "subdesc": subdesc
+                    })
         
+        print(f"Variables detected for {station_code}: {variables}")
         return variables
         
     except Exception as e:
@@ -444,11 +506,43 @@ def get_station_variables(session: requests.Session, station_code: str) -> List[
         return []
 
 
+def build_and_save_all_variables_metadata(session: requests.Session) -> Dict[str, Any]:
+    """Build unfiltered union of variables across the hardcoded station list and persist it.
+
+    Returns the saved metadata dictionary with keys: created_at, source, variables.
+    """
+    print("Building variables metadata from hardcoded station list...")
+    stations = get_all_stations(session, force_hardcoded=True)
+    all_names: Dict[str, bool] = {}
+    for s in stations:
+        code = s.get("code")
+        if not code:
+            continue
+        vars_unfiltered = get_station_variables(session, code, include_all=True)
+        for v in vars_unfiltered:
+            name = v.get("name", "")
+            if name:
+                all_names[name] = True
+
+        # Be polite to the server
+        time.sleep(0.2)
+
+    variables_list = sorted(all_names.keys())
+    metadata = {
+        "created_at": dt.datetime.now().isoformat(timespec="seconds"),
+        "source": "hardcoded_stations_union",
+        "variables": variables_list,
+    }
+    save_variables_metadata(metadata)
+    print(f"Saved variables metadata with {len(variables_list)} entries to {variables_metadata_path()}")
+    return metadata
+
+
 def get_station_metadata(session: requests.Session, station_code: str) -> Dict[str, str]:
     """Get metadata for a specific station."""
     try:
         url = f"{BASE_URL}/cgi/webhyd.pl?df={station_code}&cat=rs&lvl=1"
-        response = session.get(url)
+        response = session.get(url, timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT_SHORT))
         response.raise_for_status()
         
         # Parse HTML to extract metadata
@@ -469,53 +563,128 @@ def get_station_metadata(session: requests.Session, station_code: str) -> Dict[s
         return {"station_code": station_code, "name": f"Station {station_code}"}
 
 
+def _parse_zip_link_from_html(html: str) -> Optional[str]:
+    """Best-effort extraction of ZIP link from HTML/JS."""
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # 1) Direct anchor with href to zip
+    a_tags = soup.find_all('a', href=True)
+    for a in a_tags:
+        href = a.get('href', '')
+        if href.endswith('.zip') and ('/wgen/' in href or '/users/' in href):
+            return href
+
+    # 2) Look in inline scripts for assignment to downloadlink or any .zip URL
+    zip_regex = re.compile(r"(https?://storico\.meteotrentino\.it)?(/wgen/users/[^'\"\s]+?\.zip)")
+    for script in soup.find_all('script'):
+        text = script.text or ''
+        # common pattern: var downloadlink = '...zip';
+        m = zip_regex.search(text)
+        if m:
+            base = m.group(1) or ''
+            path = m.group(2)
+            return f"http://storico.meteotrentino.it{path}" if not base else f"{base}{path}"
+
+    return None
+
+
 def trigger_download(session: requests.Session, station_code: str, var_id: str, var_name: str) -> Optional[str]:
-    """Trigger download and return ZIP URL."""
-    try:
-        params = {
-            "co": station_code,
-            "v": var_id,
-            "vn": f"{var_name} ",
-            "p": "Tutti i dati,01/01/1800,01/01/1800,period,1",
-            "o": "Download,download",
-            "i": "Tutte le misure,Point,1",
-            "cat": "rs"
-        }
-        
-        print(f"Triggering download for {station_code}/{var_name}...")
-        response = session.get(f"{BASE_URL}/cgi/webhyd.pl", params=params, timeout=(10, 120))
-        response.raise_for_status()
-        
-        # Extract ZIP link from HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-        for script in soup.find_all("script"):
-            if "downloadlink" in script.text:
-                match = re.search(r"http://storico\.meteotrentino\.it/wgen/users/.+?\.zip", script.text)
-                if match:
-                    return match.group(0)
-        
-        return None
-        
-    except Exception as e:
-        print(f"Error triggering download for {station_code}/{var_name}: {e}")
-        return None
+    """Trigger download and return ZIP URL, polling until the link appears."""
+    params = {
+        "co": station_code,
+        "v": var_id,
+        "vn": f"{var_name} ",
+        "p": "Tutti i dati,01/01/1800,01/01/1800,period,1",
+        "o": "Download,download",
+        "i": "Tutte le misure,Point,1",
+        "cat": "rs"
+    }
+
+    print(f"Triggering download for {station_code}/{var_name}...")
+
+    deadline = time.time() + DOWNLOAD_PAGE_MAX_WAIT_SECS
+    attempt = 0
+    last_error: Optional[str] = None
+
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            response = session.get(
+                f"{BASE_URL}/cgi/webhyd.pl",
+                params=params,
+                timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT_LONG),
+            )
+            response.raise_for_status()
+
+            zip_href = _parse_zip_link_from_html(response.text)
+            if zip_href:
+                # Normalize to absolute URL
+                if zip_href.startswith('http'):
+                    return zip_href
+                if not zip_href.startswith('/'):
+                    zip_href = f"/{zip_href}"
+                return f"{BASE_URL}{zip_href}"
+
+            # If not yet present, wait and retry (archive likely still generating)
+            print(f"  ZIP link not ready yet (attempt {attempt}), polling...")
+            time.sleep(DOWNLOAD_PAGE_POLL_INTERVAL_SECS)
+        except Exception as e:
+            last_error = str(e)
+            print(f"  Warning: fetch attempt {attempt} failed: {e}")
+            time.sleep(DOWNLOAD_PAGE_POLL_INTERVAL_SECS)
+
+    if last_error:
+        print(f"Error triggering download for {station_code}/{var_name}: {last_error}")
+    else:
+        print(f"Timeout waiting for ZIP link for {station_code}/{var_name}")
+    return None
 
 
 def download_zip(session: requests.Session, zip_url: str, output_path: Path) -> bool:
-    """Download ZIP file to specified path."""
-    try:
-        print(f"Downloading ZIP from {zip_url}...")
-        response = session.get(zip_url, timeout=(10, 120))
-        response.raise_for_status()
-        
-        with output_path.open("wb") as f:
-            f.write(response.content)
-        
-        return True
-        
-    except Exception as e:
-        print(f"Error downloading ZIP from {zip_url}: {e}")
-        return False
+    """Download ZIP file to specified path, polling until file is ready."""
+    print(f"Downloading ZIP from {zip_url}...")
+
+    deadline = time.time() + ZIP_READY_MAX_WAIT_SECS
+    attempt = 0
+
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            # Stream to avoid loading whole file in memory and to survive slow servers
+            with session.get(
+                zip_url,
+                stream=True,
+                timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT_LONG),
+            ) as response:
+                if response.status_code in (404, 403):
+                    # Likely not ready yet
+                    print(f"  ZIP not ready (HTTP {response.status_code}) attempt {attempt}; retrying...")
+                    time.sleep(ZIP_READY_POLL_INTERVAL_SECS)
+                    continue
+
+                response.raise_for_status()
+
+                # Sometimes servers return HTML error pages with 200; check content-type
+                content_type = response.headers.get('Content-Type', '')
+                if 'text/html' in content_type.lower():
+                    print(f"  Unexpected HTML response for ZIP (attempt {attempt}); retrying...")
+                    time.sleep(ZIP_READY_POLL_INTERVAL_SECS)
+                    continue
+
+                tmp_path = output_path.with_suffix('.zip.partial')
+                with tmp_path.open('wb') as f:
+                    for chunk in response.iter_content(chunk_size=1024 * 256):
+                        if chunk:
+                            f.write(chunk)
+                tmp_path.replace(output_path)
+                return True
+
+        except Exception as e:
+            print(f"  Error on ZIP download attempt {attempt}: {e}")
+            time.sleep(ZIP_READY_POLL_INTERVAL_SECS)
+
+    print(f"Error downloading ZIP from {zip_url}: timeout after multiple attempts")
+    return False
 
 
 def extract_csv_from_zip(zip_path: Path, output_dir: Path) -> Optional[Path]:
@@ -606,13 +775,23 @@ def run_download(stations: List[str], variables: List[str], out_dir: Path, extra
     
     # Get all variables if needed
     if "all" in variables:
-        # Get variables from first station as template
-        if station_codes:
-            sample_vars = get_station_variables(session, station_codes[0])
-            variable_names = [v["name"] for v in sample_vars]
-            print(f"Found {len(variable_names)} variables")
-        else:
+        # Load or build unfiltered variables metadata, then filter using WANTED_VARIABLES
+        vars_meta = load_variables_metadata()
+        if not vars_meta:
+            vars_meta = build_and_save_all_variables_metadata(session)
+
+        all_var_names_unfiltered = vars_meta.get("variables", [])
+        if not all_var_names_unfiltered and station_codes:
+            # Fallback: use first station variables (unfiltered) if metadata unexpectedly empty
+            sample_vars = get_station_variables(session, station_codes[0], include_all=True)
+            all_var_names_unfiltered = [v["name"] for v in sample_vars]
+
+        # Filter after loading metadata
+        variable_names = [name for name in all_var_names_unfiltered if name in WANTED_VARIABLES]
+        if not variable_names:
+            # Final fallback to known wanted variables list
             variable_names = list(WANTED_VARIABLES.keys())
+        print(f"All-variables mode: {len(all_var_names_unfiltered)} total in metadata, {len(variable_names)} after filtering")
     else:
         variable_names = variables
     
@@ -652,7 +831,7 @@ def run_download(stations: List[str], variables: List[str], out_dir: Path, extra
                     break
             
             if not var_info:
-                print(f"Warning: Variable {variable} not found for station {station}")
+                print(f"Warning: Variable '{variable}' not found for station {station}; marking as failed")
                 entry["status"] = "failed"
                 entry["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
                 save_state(out_dir, state)
@@ -662,7 +841,7 @@ def run_download(stations: List[str], variables: List[str], out_dir: Path, extra
             zip_url = trigger_download(session, station, var_info["var"], var_info["name"])
             
             if not zip_url:
-                print(f"Warning: No ZIP URL found for {station}/{variable}")
+                print(f"Warning: No ZIP URL found for {station}/{variable} (likely generation timeout)")
                 entry["status"] = "failed"
                 entry["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
                 save_state(out_dir, state)

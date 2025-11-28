@@ -39,23 +39,29 @@ The project aims to provide interpretable insights into the correlation between 
 
 The repository is organized into four logical units, separating data acquisition, engineering, core modeling, and experimental forecasting.
 
-### 1\. Web Data Scraping
+### 1\. Scripts
 
-Located in `web_data_scraping/`.
-This module manages the automated acquisition of raw data from external APIs and public repositories. It ensures scalability and reproducibility of the dataset. Supported sources include:
+Located in `scripts/`.
+This folder contains a comprehensive suite of Python scripts for data acquisition, merging, curation, analysis, and visualization. Key functionalities include:
 
-  * **ERA5 & ERA5-Land:** Retrieval of reanalysis data and Boundary Layer Height (BLH) via Copernicus CDS API.
-  * **EEA (European Environment Agency):** Bulk download of continental air quality data.
-  * **Local Agencies:** Scrapers for APPA Trento, Meteo Trentino, and ARPAV (Veneto) data portals.
+  * Automated bulk and batch downloads from multiple sources (APPA, ARPAV, Alto Adige, Meteo Trentino, EEA, ERA5).
+  * Data curation, gap filling, and feature engineering for high-quality datasets.
+  * Merging and integration of heterogeneous data sources using spatial and temporal logic.
+  * Statistical analysis, correlation studies, and coverage assessment.
+  * Generation of curated datasets and visualizations for modeling and reporting.
 
-### 2\. Data Pre-Processing
+Refer to `scripts/README.md` for a detailed guide to individual scripts and their usage.
 
-Located in `data_pre_processing/`.
-This module handles Extract, Transform, Load (ETL) operations to convert raw data into analysis-ready datasets. Key operations include:
+### 2\. Notebooks
 
-  * **Gap Filling & Curation:** Statistical interpolation and imputation of missing values using nearest-neighbor stations or machine learning techniques.
-  * **Feature Engineering:** Calculation of distance matrices and aggregations.
-  * **Merging Logic:** Creation of daily datasets by integrating air quality measurements with meteorological variables based on geographical proximity.
+Located in `notebooks/`.
+This folder contains Jupyter notebooks for exploratory analysis, inspection, and visualization of datasets. Typical uses include:
+
+  * Inspecting merged and curated datasets interactively.
+  * Visualizing time series, distributions, and model outputs.
+  * Prototyping analysis workflows and validating pipeline results.
+
+Notebooks are designed for flexible, interactive exploration and are complementary to the automated scripts in the pipeline.
 
 ### 3\. Core Pipeline (Chinquinaria)
 
@@ -66,7 +72,7 @@ The central orchestration engine for modeling and analysis.
   * **Explainability (XAI):** Automated computation of SHAP (SHapley Additive exPlanations) values to determine feature importance on specific time windows.
   * **LLM Reporting:** Generation of synthetic textual reports summarizing model insights. Supports both open-source models and proprietary APIs (e.g., GPT-4 series).
 
-### 4\. Deep Forecasting (Experimental)
+### 4\. Deep Forecasting 
 
 Located in `deep_forecasting/`.
 **Current Status: Under Development / Future Improvement.**
@@ -157,19 +163,21 @@ appa-chinquinaria/
 │   ├── modeling/                # ML & DL models (XGBoost, LightGBM, LSTM, etc.)
 │   ├── optuna/                  # Hyperparameter optimization
 │   └── utils/                   # Utilities (evaluation, logging, file I/O)
-├── data_pre_processing/         # ETL, feature engineering, gap filling
-│   ├── bulk-data-pre-processing/
-│   └── daily_dataset/
-├── web_data_scraping/           # Automated data acquisition (APIs, scrapers)
-│   ├── bulk-download-blh/
-│   ├── bulk-download-eea/
-│   ├── bulk-download-era5-land-all-pm10-stations/
-│   ├── bulk-download-meteo-arpav/
-│   └── bulk-download-trentino-data/
+├── scripts/                     # Data acquisition, merging, analysis, and visualization scripts
+│   ├── PostProcessing.py
+│   ├── filter_eea_by_proximity.py
+│   ├── merge_appa_meteo_trentino.py
+│   ├── merge_datasets_by_proximity.py
+│   ├── ... (other acquisition, curation, analysis, and plotting scripts)
+│   └── README.md                # Scripts documentation
+├── notebooks/                   # Jupyter notebooks for exploration and inspection
+│   ├── inspect_merged_dataset.ipynb
+│   ├── data_visualization.ipynb
+│   ├── ... (other analysis notebooks)
 ├── deep_forecasting/            # Experimental SOTA forecasting models
 ├── assets/                      # Images, diagrams, and visual assets
 ├── docs/                        # Documentation and guides
 ├── requirements.txt             # Python dependencies
 ├── README.md                    # Project overview and instructions
-└── ...                          # Other scripts, notebooks, data, etc.
+└── ...                          # Other modules, data, etc.
 ```

@@ -1,41 +1,48 @@
 # Web Data Scraping
 
-This directory contains scripts and modules for automated downloading, aggregation, and initial processing of air quality and meteorological datasets from various online sources. The focus is on robust, scalable data acquisition for the APPA Chinquinaria project, supporting downstream analysis and modeling workflows.
+# Data Acquisition, Curation, Analysis, and Visualization Scripts
 
+This directory contains a comprehensive suite of Python scripts for the APPA Chinquinaria project, supporting the full data pipeline from raw acquisition to advanced analysis and visualization. The scripts are organized to enable robust, scalable workflows for air quality and meteorological data, including:
+
+- Automated bulk and batch data downloads from multiple sources (APPA, ARPAV, Alto Adige, Meteo Trentino, EEA, ERA5).
+- Data curation, gap filling, and feature engineering for high-quality datasets.
+- Merging and integration of heterogeneous data sources.
+- Statistical analysis, correlation studies, and coverage assessment.
+- Generation of curated datasets for modeling and reporting.
+- Visualization and plotting of time series and curated data.
 ## Structure
 
 - **download_from_csv.py**  
-  Utility script for batch downloading data using CSV input lists.
 
 - **bulk-download-blh/**  
   Scripts for downloading and processing ERA5 Boundary Layer Height (BLH) data:
-  - `download_blh.py`: Automated download of BLH data from Copernicus/ERA5.
   - `build_blh_dataset.py`: Aggregation and structuring of BLH datasets for analysis.
 
 - **bulk-download-eea/**  
-  Scripts for downloading European Environment Agency (EEA) air quality data:
   - `bulk_download_eea.py`: Automated retrieval of EEA datasets for selected pollutants and countries.
 
 - **bulk-download-era5-land-all-pm10-stations/**  
-  Scripts for downloading and aggregating ERA5-Land timeseries for all PM10 monitoring stations:
   - `bulk_download_era5_land_timeseries.py`: Batch download of ERA5-Land data.
   - `aggregate_era5_land_timeseries.py`: Aggregation and formatting of downloaded timeseries.
 
-- **bulk-download-meteo-arpav/**  
   Scripts for downloading meteorological data from ARPAV (Veneto region):
   - `bulk_download_arpav.py`: Automated download of ARPAV weather data.
   - `test_arpav_functions.py`: Utility and test functions for ARPAV data access.
 
 - **bulk-download-trentino-data/**  
-  Scripts for downloading air quality and meteorological data for Trentino:
   - `bulk_download_appa.py`: Bulk download of APPA Trento air quality data.
   - `bulk_download_meteo_trentino.py`: Bulk download of Meteo Trentino weather data.
   - `test_meteo_connection.py`: Connection tests and utilities for Meteo Trentino data access.
 
+- **Data Pre-processing**
+  - `PostProcessing.py`: Advanced post-processing utilities for cleaning and transforming merged datasets.
+  - `filter_eea_by_proximity.py`: Filters EEA air quality data based on spatial proximity to target locations.
+  - `merge_appa_meteo_trentino.py`: Merges APPA air quality data with Meteo Trentino meteorological data for integrated analysis.
+  - `merge_datasets_by_proximity.py`: Merges datasets using spatial proximity logic, useful for combining heterogeneous sources.
+
 ## Main Operations
 
 - **Automated Data Acquisition:**  
-  - Batch and bulk download of datasets from official APIs, portals, and cloud storage.
   - Support for multiple data sources: ERA5, ERA5-Land, EEA, ARPAV, APPA, Meteo Trentino.
 
 - **Data Aggregation and Structuring:**  
@@ -51,13 +58,15 @@ Scripts in this directory are designed to be run independently for specific data
 
 Typical workflow:
 1. Use bulk download scripts to acquire raw datasets from online sources.
-2. Aggregate and format downloaded data as needed for analysis.
-3. Validate data integrity using provided test scripts.
-
 ## Notes
 
 - All scripts are written in Python and require standard scientific libraries (pandas, numpy, requests, etc.).
 - Some scripts may require API credentials or configuration files (see documentation and comments).
 - Output datasets are intended for use in subsequent pre-processing and modeling modules.
 
+
 For further details on integration with the overall data pipeline, refer to the main project documentation.
+
+---
+
+**Extensive guides and step-by-step instructions for data acquisition, curation, and analysis are provided in the `./docs` directory.**

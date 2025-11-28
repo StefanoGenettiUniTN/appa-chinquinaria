@@ -9,12 +9,15 @@ defined by latitude/longitude coordinates (typically air quality stations)
 using the CDS API "reanalysis-era5-land-timeseries" dataset.
 
 The goal is to obtain, for each station:
-    - 2m temperature
-    - surface pressure
-    - total precipitation
-    - surface solar radiation downwards
-    - 10m u component of wind
-    - 10m v component of wind
+    - 2m temperature (t2m → temperature_2m in aggregated output)
+    - surface pressure (sp → surface_pressure in aggregated output)
+    - total precipitation (tp → total_precipitation in aggregated output)
+    - surface solar radiation downwards (ssrd → solar_radiation_downwards in aggregated output)
+    - 10m u component of wind (u10 → wind_u_10m in aggregated output)
+    - 10m v component of wind (v10 → wind_v_10m in aggregated output)
+    
+Note: Column names are expanded to readable forms during aggregation
+by `aggregate_era5_land_timeseries.py`.
 
 Usage example:
 
@@ -180,7 +183,21 @@ def main() -> None:
     print("=" * 80)
 
     stations_df = load_stations(stations_csv)
-    print(f"Found {len(stations_df)} stations in CSV.")
+
+    # Exclude stations with insufficient PM10 data from ERA5-Land downloads.
+    # These were filtered out in the PM10 curation workflow and should not be
+    # part of the ERA5-Land dataset used alongside it.
+    excluded_station_codes = {"AB3", "CR2"}
+    if not excluded_station_codes.isdisjoint(set(stations_df["station_code"].astype(str))):
+        before = len(stations_df)
+        stations_df = stations_df[~stations_df["station_code"].astype(str).isin(excluded_station_codes)]
+        after = len(stations_df)
+        print(
+            f"Filtered stations metadata: removed {before - after} stations "
+            f"with station_code in {sorted(excluded_station_codes)}."
+        )
+
+    print(f"Found {len(stations_df)} stations in CSV after filtering.")
 
     client = cdsapi.Client()
 

@@ -58,6 +58,96 @@ def merge_metadata(df_eea: pd.DataFrame, metadata_path: str) -> pd.DataFrame:
 
     return df_merged
 
+def download_eea( output_folder: str,
+                  metadata_path: str,
+                  api_countries: List[str] = None,
+                  api_cities: List[str] = None,
+                  api_pollutants: List[str] = None,
+                  api_dateTimeStart: str = None,
+                  api_dateTimeEnd: str = None,
+                  api_aggregationType: str = None,
+                  zip_path: str = None) -> None:
+    """
+    Downloads EEA data function
+    Args:
+        output_folder (str): Path of the output folder.
+        api_countries (List[str]): List of country codes to fetch data for.
+        api_cities (List[str]): List of city names to fetch data for.
+        api_pollutants (List[str]): List of pollutants to fetch data for.
+        api_dateTimeStart (str): Start date for data retrieval in Format: yyyy-mm-dd.
+        api_dateTimeEnd (str): End date for data retrieval in Format: yyyy-mm-dd.
+        api_aggregationType (str): Aggregation type to filter data.
+        metadata_path (str): Path of the metadata csv file.
+        zip_path (str, optional): Path of the downloaded zip. Defaults to None.
+    """
+    output_csv = f"{output_folder}/eea_data.csv"
+    apiUrl = "https://eeadmz1-downloads-api-appservice.azurewebsites.net/"
+    endpoint = "ParquetFile"
+
+    # collect parquet files
+    if zip_path is None:
+        # get parquet zip from API
+        zip_path = f"{output_folder}/eea_data.zip"
+
+        # request body
+        request_body = {
+            "countries": api_countries if api_countries else [],
+            "cities": api_cities if api_cities else [],
+            "pollutants": api_pollutants if api_pollutants else [],
+            "dataset": 2,
+            "dateTimeStart": f"{api_dateTimeStart}T00:00:00.000Z",
+            "dateTimeEnd": f"{api_dateTimeEnd}T23:59:00.000Z",
+            "aggregationType": f"{api_aggregationType}",
+            "email": None
+        }
+
+        # a get request to the API
+        print("Requesting zip file from API...")
+        downloadFile = requests.post(apiUrl+endpoint, json=request_body).content
+        
+        # store in local path
+        output = open(zip_path, 'wb')
+        output.write(downloadFile)
+        output.close()
+        print(f"Downloaded zip file from API and saved to {zip_path}")
+
+    parquet_files: List[str] = extract_parquet_from_zip(zip_path, output_folder)
+    print(f"Found {len(parquet_files)} parquet files")
+
+    # convert to csv
+    parquet_to_csv(parquet_files, output_csv)
+
+    # merge with metadata
+    df_eea = pd.read_csv(output_csv)
+    df_merged = merge_metadata(df_eea, metadata_path)
+    df_merged.to_csv(output_csv, index=False)
+    print(f"Merged CSV saved to {output_csv}")
+
+    # columns to extract
+    columns_to_keep = [
+        "station-id",
+        "Start",
+        "End",
+        "Value",
+        "Unit",
+        "AggType",
+        "Country",
+        "Air Pollutant",
+        "Longitude",
+        "Latitude",
+        "Altitude",
+        "Altitude Unit",
+        "Air Quality Station Area",
+        "Air Quality Station Type",
+        "Municipality",
+        "Duration Unit",
+        "Cadence Unit"
+    ]
+    df_filtered = df_merged[columns_to_keep]
+    df_filtered.to_csv(output_csv, index=False)
+    print(f"Filtered CSV saved as {output_csv}")
+
+
 def read_arguments():
     parser = argparse.ArgumentParser(description="Python to get csv from parquet file from the European Environment Agency.")
     
@@ -84,13 +174,13 @@ if __name__ == '__main__':
     current_datetime = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Always save in data/eea-data folder in project root
-    project_root = Path(__file__).parent.parent.parent
+    project_root = Path(__file__).parent.parent
     eea_data_dir = project_root / "data" / "eea-data"
     output_folder = f"{eea_data_dir}/{current_datetime}"
     os.makedirs(output_folder, exist_ok=True)
     output_csv = f"{output_folder}/{args['output_csv']}"
     apiUrl = "https://eeadmz1-downloads-api-appservice.azurewebsites.net/"
-    pollutant_dict = {"PM10": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/5"}
+    pollutant_dict = {"PM10": "PM10"}
     endpoint = "ParquetFile"
 
     # collect parquet files

@@ -28,6 +28,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 from urllib.parse import parse_qsl
+from threading import Lock, local
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import requests
@@ -108,6 +110,16 @@ def save_metadata(out_dir: Path, metadata: Dict):
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, sort_keys=True, ensure_ascii=False)
     tmp.replace(metadata_path)
+
+
+_thread_local = local()
+
+
+def _get_thread_session(verify_ssl: bool = True) -> requests.Session:
+    """Return a requests.Session bound to the current thread."""
+    if getattr(_thread_local, "session", None) is None:
+        _thread_local.session = create_session(verify_ssl=verify_ssl)
+    return _thread_local.session
 
 
 def create_session(verify_ssl: bool = True) -> requests.Session:
@@ -632,6 +644,7 @@ def run_download(
     date_end_override: Optional[str] = None,
     connect_timeout: Optional[int] = None,
     read_timeout: Optional[int] = None,
+    workers: int = 1,
 ):
     """Main download orchestration."""
     ensure_folder(out_dir)
@@ -662,6 +675,7 @@ def run_download(
         if extra_params:
             print(f"Extra query params: {extra_params}")
         print(f"POST range enabled: {post_range}")
+    print(f"Workers: {workers}")
     
     pending_tasks = [t for t in state["tasks"] if t["status"] != "done"]
     total_tasks = len(pending_tasks)
@@ -680,6 +694,11 @@ def run_download(
             tasks_by_year[year] = []
         tasks_by_year[year].append(task)
     
+    # Thread-safe structures
+    state_lock = Lock()
+    year_dataframes_dict = {}
+    saved_html_counts = {}
+    
     # Process each year
     for year in sorted(tasks_by_year.keys()):
         year_tasks = tasks_by_year[year]
@@ -693,8 +712,8 @@ def run_download(
         
         print(f"\nYear {year}: {len(pending_year_tasks)} stations to download")
         
-        year_dataframes = []
-        saved_html_count = 0
+        year_dataframes_dict[year] = []
+        saved_html_counts[year] = 0
         debug_dir = (out_dir / "debug_html" / str(year)) if (debug or save_html) else None
         # Build default date range for the year (dd/mm/yyyy)
         default_start = f"01/01/{year:04d}"
@@ -702,22 +721,30 @@ def run_download(
         year_date_start = date_start_override or default_start
         year_date_end = date_end_override or default_end
         
-        progress = tqdm(pending_year_tasks, desc=f"Year {year}") if TQDM_AVAILABLE else None
+        progress = tqdm(total=len(pending_year_tasks), desc=f"Year {year}") if TQDM_AVAILABLE else None
         
-        for task in pending_year_tasks:
+        def worker(task: Dict) -> None:
+            """Worker function to download a single station-sensor-year combination."""
             station_id = task["station_id"]
             sensor_id = task["sensor_id"]
             station_name = task.get("station_name", station_id)
+            year = task["year"]
             
-            if progress:
-                progress.set_description(f"{station_name[:20]} (sensor {sensor_id})")
-            else:
+            if not TQDM_AVAILABLE:
                 print(f"  Downloading {station_name} (sensor {sensor_id})...")
             
+            # Per-thread session
+            thread_session = _get_thread_session(verify_ssl=verify_ssl)
+            
+            # Check if we can save HTML
+            with state_lock:
+                can_save_html = save_html and (saved_html_counts[year] < save_html_limit if save_html_limit else True)
+                if can_save_html:
+                    saved_html_counts[year] += 1
+            
             # Download HTML using sensor ID
-            can_save_html = save_html and (saved_html_count < save_html_limit if save_html_limit else True)
             html_content = download_sensor_year_html(
-                session,
+                thread_session,
                 sensor_id,
                 year,
                 extra_params=extra_params,
@@ -731,53 +758,59 @@ def run_download(
                 read_timeout=read_timeout,
             )
             
-            task["attempts"] = task.get("attempts", 0) + 1
-            task["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
-            
-            if html_content:
-                # Parse HTML to DataFrame
-                df = parse_html_table(html_content, station_id, year)
+            # Update task and state atomically
+            with state_lock:
+                task["attempts"] = task.get("attempts", 0) + 1
+                task["updated_at"] = dt.datetime.now().isoformat(timespec="seconds")
                 
-                if df is not None and len(df) > 0:
-                    # Add sensor ID to the dataframe for tracking
-                    df.insert(2, 'sensor_id', sensor_id)
-                    year_dataframes.append(df)
-                    if can_save_html:
-                        saved_html_count += 1
-                    if debug and 'timestamp' in df.columns:
-                        try:
-                            ts = df['timestamp']
-                            min_ts = ts.min()
-                            max_ts = ts.max()
-                            non_null = ts.notna().sum()
-                            print(f"    Coverage {station_name} ({sensor_id}) {year}: {non_null} rows, min={min_ts}, max={max_ts}")
-                        except Exception:
-                            pass
-                    task["status"] = "done"
+                if html_content:
+                    # Parse HTML to DataFrame
+                    df = parse_html_table(html_content, station_id, year)
+                    
+                    if df is not None and len(df) > 0:
+                        # Add sensor ID to the dataframe for tracking
+                        df.insert(2, 'sensor_id', sensor_id)
+                        year_dataframes_dict[year].append(df)
+                        
+                        if debug and 'timestamp' in df.columns:
+                            try:
+                                ts = df['timestamp']
+                                min_ts = ts.min()
+                                max_ts = ts.max()
+                                non_null = ts.notna().sum()
+                                print(f"    Coverage {station_name} ({sensor_id}) {year}: {non_null} rows, min={min_ts}, max={max_ts}")
+                            except Exception:
+                                pass
+                        task["status"] = "done"
+                    else:
+                        task["status"] = "failed"
+                        if debug:
+                            print(f"  Warning: Failed to parse data for {station_name} (sensor {sensor_id})/{year}")
                 else:
                     task["status"] = "failed"
-                    print(f"  Warning: Failed to parse data for {station_name} (sensor {sensor_id})/{year}")
-            else:
-                task["status"] = "failed"
-            
-            # Save state after each task
-            save_state(out_dir, state)
-            
-            if progress:
-                progress.update(1)
-            
-            # Be polite to the server
-            time.sleep(0.5)
+                
+                # Save state after each task
+                save_state(out_dir, state)
+                
+                if progress:
+                    progress.update(1)
+        
+        # Execute in parallel
+        max_workers = max(1, int(workers))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(worker, t) for t in pending_year_tasks]
+            for _ in as_completed(futures):
+                pass
         
         if progress:
             progress.close()
         
         # Merge year data into CSV
+        year_dataframes = year_dataframes_dict.get(year, [])
         if year_dataframes:
             merge_station_data_to_yearly_csv(out_dir, year, year_dataframes)
             if debug:
                 try:
-                    import pandas as pd  # already imported above
                     merged = pd.concat(year_dataframes, ignore_index=True)
                     if 'timestamp' in merged.columns:
                         ts = merged['timestamp']
@@ -834,6 +867,7 @@ Examples:
     parser.add_argument("--date-end", default=None, help="Override end date in dd/mm/yyyy (default 31/12/<year>)")
     parser.add_argument("--connect-timeout", type=int, default=None, help=f"HTTP connect timeout seconds (default {HTTP_CONNECT_TIMEOUT})")
     parser.add_argument("--read-timeout", type=int, default=None, help=f"HTTP read timeout seconds (default {HTTP_READ_TIMEOUT})")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel download workers (default: 1)")
     
     args = parser.parse_args()
     
@@ -881,6 +915,7 @@ Examples:
         date_end_override=args.date_end,
         connect_timeout=args.connect_timeout,
         read_timeout=args.read_timeout,
+        workers=args.workers,
     )
 
 
