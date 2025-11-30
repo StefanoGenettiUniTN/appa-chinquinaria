@@ -71,11 +71,3 @@ The **pipeline executes in sequence**:
 **Output**
    - Results (predictions, feature importance, textual reports) are saved in the directory specified in `config.py`.
    - Log files and intermediate reports are available for detailed analysis.
-
-## Additional Notes
-
-- The pipeline supports both traditional and deep learning models (LSTM) via PyTorch Forecasting.
-- Automated SHAP execution enables robust evaluation of variable importance.
-- The LLM module generates synthetic and customized textual reports for each analyzed time window.
-
-For further details on configuration options and advanced features, refer to the main project README.

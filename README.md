@@ -142,11 +142,11 @@ To run the XAI pipeline (Data Loading → Training → Inference → SHAP → Re
 python -m chinquinaria.pipeline
 ```
 
-More instruction in dedicated directory.
+More instruction in the dedicated directory.
 
 ### Forecasting Workflow
 
-To run the Forecasting models, execute the submodule inside the `deep_forecasting` folder (see documentation inside that folder for details):
+To run the Forecasting models, execute the submodule inside the `deep_forecasting` directory (see documentation inside that direcotry for details):
 
 ### Framework Dual Sources Flow Diagram
 
