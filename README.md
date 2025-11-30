@@ -8,6 +8,12 @@
   <img src="https://img.shields.io/badge/optuna-3.0+-purple.svg" alt="Optuna">
 </div>
 
+---
+
+**Authors**: Alberto Catalano, Alessandro Delle Site, Elisa Negrini, Ettore Miglioranza, Federico Rubbi, Nicolò Cecchin, Stefano Genetti
+
+**Supervisors/Partners**: Elena Tomasi (FBK), Elisa Malloci (Provincia TN), Massimo Cassiani (UniTN)
+
 ## Context and Collaboration
 
 This framework was developed within the scope of the **Public AI Challenge**, an open innovation initiative designed to apply artificial intelligence to real-world problems in the public sector. The project is the result of a strategic collaboration between **Hub Innovazione Trentino (HIT)**, the **University of Trento**, and the **Autonomous Province of Trento**.
@@ -29,11 +35,10 @@ The [Public AI Challenge](https://www.trentinoinnovation.eu/innovate/innovation-
 
 ## Project Overview
 
-APPA Chinquinaria is a modular framework designed for the collection, processing, analysis, and forecasting of air quality data in the Trentino region (Italy). The system integrates heterogeneous data sources—including local ground stations, regional meteorological data, and European reanalysis datasets—to construct robust datasets for machine learning.
+APPA Chinquinaria is a modular framework designed for the analysis and forecasting of air quality in Trentino. To address the dual requirement of **interpretability** and **precision**, the system implements a **Dual-Approach Framework**:
 
-The core pipeline implements a complete workflow ranging from data ingestion to the training of baseline and deep learning models (LSTM), integrated with an automated explainability layer (SHAP) and a reporting module based on Large Language Models (LLM).
-
-The project aims to provide interpretable insights into the correlation between meteorological variables and pollutant concentrations (specifically PM10).
+1.  **Daily Resolution (XAI Focus):** Aggregates data on a daily basis to train interpretable regression models (XGBoost, LightGBM, RF). This track integrates an automated **SHAP (SHapley Additive exPlanations)** layer and **LLM-based reporting** to explain meteorological drivers of PM10.
+2.  **Hourly Resolution (Deep Forecasting Focus):** Aggregates data on an hourly basis to train state-of-the-art Deep Learning architectures (LSTM, Transformers). This track focuses on capturing complex temporal dependencies for robust mid-to-long-term forecasting.
 
 ## System Architecture
 
@@ -64,20 +69,20 @@ This folder contains Jupyter notebooks for exploratory analysis, inspection, and
 
 Notebooks are designed for flexible, interactive exploration and are complementary to the automated scripts in the pipeline.
 
-### 3\. Core Pipeline (Chinquinaria)
+### 3. Core Pipeline (`chinquinaria/`)
 
-Located in `chinquinaria/`.
-The central orchestration engine for modeling and analysis.
+**Target: Daily Dataset | Focus: Explainability**
+The central orchestration engine for the XAI workflow.
+* **Modeling:** Training and inference for Baseline regressors (XGBoost, LightGBM, Random Forest, MLP).
+* **Explainability:** Automated computation of SHAP values to quantify feature importance on specific time windows.
+* **LLM Reporting:** Generation of synthetic textual reports summarizing model insights using Large Language Models.
 
-  * **Modeling:** Supports training and inference for Baseline models (XGBoost, LightGBM, Random Forest, MLP) and Recurrent Neural Networks (LSTM via PyTorch Forecasting).
-  * **Explainability (XAI):** Automated computation of SHAP (SHapley Additive exPlanations) values to determine feature importance on specific time windows.
-  * **LLM Reporting:** Generation of synthetic textual reports summarizing model insights. Supports both open-source models and proprietary APIs (e.g., GPT-4 series).
+### 4. Deep Forecasting (`deep_forecasting/`)
 
-### 4\. Deep Forecasting 
-
-Located in `deep_forecasting/`.
-**Current Status: Under Development / Future Improvement.**
-This directory is reserved for advanced experimentation with State-of-the-Art (SOTA) Transformer-based architectures for time-series forecasting. Unlike the Core Pipeline, this module operates independently and focuses on "deep forecasting" tasks. It allows for the testing of complex architectures without affecting the stability of the production pipeline. Integration into the main workflow is planned for future release cycles.
+**Target: Hourly Dataset | Focus: High-Resolution Forecasting**
+This module contains the advanced Deep Learning architectures described in the project report.
+* **Architectures:** Implementation of LSTM and Transformer-based models for time-series forecasting.
+* **Workflow:** Handles the specific pre-processing required for high-frequency hourly data, distinct from the daily aggregation pipeline.
 
 ## Data Sources
 
@@ -87,10 +92,10 @@ The framework relies on a specific set of data providers to model the environmen
 |--------|------|-------------|
 | **APPA Trento** | Air Quality | Primary source for PM10, NO2, and other pollutant measurements from provincial monitoring stations. |
 | **Meteo Trentino** | Meteorological | Local observation data including temperature, precipitation, wind speed/direction, and solar radiation. |
-| **ARPAV** | Meteorological | Boundary condition data from the neighboring Veneto region. |
-| **Alto Adige / Südtirol** | Meteorological | Data from 174 monitoring stations in the Bolzano province, used for hydrological and meteorological context. |
+| **ARPAV/ARPA** | Air Quality | Pollutant indicators data from the neighboring Veneto and Lombardia region. |
 | **EEA** | Air Quality | Pan-European dataset used for validation and broader context analysis. |
 | **ERA5 (Copernicus)** | Reanalysis | Boundary Layer Height (BLH) and other atmospheric variables not measured by ground stations. |
+| **Alto Adige / Südtirol** | Meteorological | Data from 174 monitoring stations in the Bolzano province, used for hydrological and meteorological context. |
 
 ## Installation and Setup
 
@@ -99,6 +104,7 @@ The framework relies on a specific set of data providers to model the environmen
   * Python 3.10 or higher.
   * Virtual environment (recommended).
   * API Credentials for Copernicus CDS (if downloading ERA5 data).
+  * LLM Backend Requirements: A valid API Key is required for proprietary services (e.g., OpenAI). Alternatively, for local execution of open-source models, high-performance computing resources (such as a High-VRAM GPU or Google Colab Pro+) are mandatory.
 
 ### Installation Steps
 
@@ -123,33 +129,37 @@ The framework relies on a specific set of data providers to model the environmen
       * **LLM Services:** Create a `.env` file in the root directory containing the required tokens (e.g., `GITHUB_TOKEN` for Azure/OpenAI endpoints).
 
 4.  **Pipeline Configuration:**
-    Modify `chinquinaria/config.py` to set dataset versions, date ranges, model types (`lstm`, `xgboost`, etc.), and execution flags.
+    Modify `chinquinaria/config.py` to set dataset versions, date ranges, model types (`lightGBM`, `xgboost`, etc.), and execution flags.
 
 ## Usage
 
-### Execution
 
-To run the complete pipeline (Data Loading -\> Training -\> Inference -\> SHAP -\> Reporting):
+### XAI Workflow
+
+To run the XAI pipeline (Data Loading → Training → Inference → SHAP → Reporting):
 
 ```bash
 python -m chinquinaria.pipeline
 ```
 
-#### Pipeline Flow Diagram
+More instruction in dedicated directory.
+
+### Forecasting Workflow
+
+To run the Forecasting models, execute the submodule inside the `deep_forecasting` folder (see documentation inside that folder for details):
+
+### Framework Dual Sources Flow Diagram
 
 <div align="center">
-  <img src="assets/image.png" alt="Pipeline Flow Diagram" width="700">
+  <img src="assets/image.png" alt="Framework Dual Sources Flow Diagram" width="700">
 </div>
+
 
 ### Technical constraints and troubleshooting
 
   * **Memory Management:** Processing large ERA5 datasets may require significant RAM. It is recommended to use the Parquet format where possible and process data in chunks.
   * **API Quotas:** Downloads from the Climate Data Store (CDS) are subject to queuing and rate limits. Verify credentials and quotas if downloads fail.
   * **Deep Forecasting:** Scripts within `deep_forecasting/` are experimental and may require specific library versions different from the main pipeline. Refer to local documentation within that directory.
-
-## Acknowledgments
-
-Acknowledgment is given to APPA Trento, Meteo Trentino, ARPAV, the Autonomous Province of Bolzano, the European Environment Agency, and the Copernicus Climate Change Service for making the data used in this research available.
 
 ## Project Structure
 
@@ -182,3 +192,8 @@ appa-chinquinaria/
 ├── README.md                    # Project overview and instructions
 └── ...                          # Other modules, data, etc.
 ```
+
+## Acknowledgments
+
+Acknowledgment is given to APPA Trento, Meteo Trentino, ARPAV, the Autonomous Province of Bolzano, the European Environment Agency, and the Copernicus Climate Change Service for making the data used in this research available.
+
