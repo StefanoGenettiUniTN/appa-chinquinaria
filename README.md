@@ -1,391 +1,199 @@
-# APPA Chinquinaria - Air Quality Data Analysis
+# APPA Chinquinaria: Air Quality Analysis and Forecasting Framework
+<div align="center">
+  <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/pandas-1.3.0+-yellow.svg" alt="pandas">
+  <img src="https://img.shields.io/badge/xgboost-1.7+-orange.svg" alt="XGBoost">
+  <img src="https://img.shields.io/badge/lightgbm-3.3+-lightgrey.svg" alt="LightGBM">
+  <img src="https://img.shields.io/badge/pytorch-2.0+-black.svg" alt="PyTorch">
+  <img src="https://img.shields.io/badge/optuna-3.0+-purple.svg" alt="Optuna">
+</div>
 
-A comprehensive data collection and analysis framework for air quality monitoring in Trentino, Italy. This project integrates multiple data sources including APPA Trento air quality measurements, Meteo Trentino meteorological data, European Environment Agency (EEA) data, and ERA5 reanalysis data for boundary layer height.
+---
 
-## 🎯 Project Overview
+**Authors**: Alberto Catalano, Alessandro Delle Site, Elisa Negrini, Ettore Miglioranza, Federico Rubbi, Nicolò Cecchin, Stefano Genetti
 
-This repository provides tools to:
-- Download and process air quality data from multiple sources
-- Analyze correlations between meteorological conditions and pollutant concentrations
-- Visualize temporal and spatial patterns in air quality
-- Study the relationship between boundary layer height and pollutant dispersion
+**Supervisors/Partners**: Elena Tomasi (FBK), Elisa Malloci (Provincia TN), Massimo Cassiani (UniTN)
 
-## 📊 Data Sources
+## Context and Collaboration
+
+This framework was developed within the scope of the **Public AI Challenge**, an open innovation initiative designed to apply artificial intelligence to real-world problems in the public sector. The project is the result of a strategic collaboration between **Hub Innovazione Trentino (HIT)**, the **University of Trento**, and the **Autonomous Province of Trento**.
+
+The primary objective was to design and implement a robust analytical pipeline for the forecasting and explainability of air quality data, specifically addressing the operational needs of the **Agenzia provinciale per la protezione dell'ambiente (APPA)**.
+
+### The Initiative
+
+**Public AI Challenge**
+The [Public AI Challenge](https://www.trentinoinnovation.eu/innovate/innovation-tools/public-ai-challenge/?lang=en) is an open innovation program that connects public administrations with the research ecosystem to solve complex challenges using advanced data science and machine learning techniques. In this specific iteration, the challenge assigned to us focused on developing predictive models for environmental monitoring, requiring the integration of heterogeneous data sources and the application of explainable AI methodologies to support decision-making processes.
+
+**Hub Innovazione Trentino (HIT)**
+[HIT](https://www.trentinoinnovation.eu/) is a foundation dedicated to promoting technology transfer and innovation in the Trentino region. Acting as a bridge between scientific research and the market, HIT valorizes the results of its founding members—including the University of Trento and Fondazione Bruno Kessler—to foster economic and social development. In this project, HIT facilitated the definition of the challenge and the coordination between the research team and the public stakeholder.
+
+### The Client Agency
+
+**Agenzia Provinciale per la Protezione dell'Ambiente (APPA)**
+[APPA](https://www.appa.provincia.tn.it/) is the technical-scientific body of the Autonomous Province of Trento responsible for environmental protection and control. The agency's mandate includes monitoring the state of the environment (air, water, soil), controlling pollution sources, and providing technical support for environmental authorizations and impact assessments. For this project, APPA served as the domain expert and data provider, defining the specific requirements for PM10 forecasting and the analysis of meteorological correlations.
+
+## Project Overview
+
+APPA Chinquinaria is a modular framework designed for the analysis and forecasting of air quality in Trentino. To address the dual requirement of **interpretability** and **precision**, the system implements a **Dual-Approach Framework**:
+
+1.  **Daily Resolution (XAI Focus):** Aggregates data on a daily basis to train interpretable regression models (XGBoost, LightGBM, RF). This track integrates an automated **SHAP (SHapley Additive exPlanations)** layer and **LLM-based reporting** to explain meteorological drivers of PM10.
+2.  **Hourly Resolution (Deep Forecasting Focus):** Aggregates data on an hourly basis to train state-of-the-art Deep Learning architectures (LSTM, Transformers). This track focuses on capturing complex temporal dependencies for robust mid-to-long-term forecasting.
+
+## System Architecture
+
+The repository is organized into four logical units, separating data acquisition, engineering, core modeling, and experimental forecasting.
+
+### 1\. Scripts
+
+Located in `scripts/`.
+This folder contains a comprehensive suite of Python scripts for data acquisition, merging, curation, analysis, and visualization. Key functionalities include:
+
+  * Automated bulk and batch downloads from multiple sources (APPA, ARPAV, Alto Adige, Meteo Trentino, EEA, ERA5).
+  * Data curation, gap filling, and feature engineering for high-quality datasets.
+  * Merging and integration of heterogeneous data sources using spatial and temporal logic.
+  * Statistical analysis, correlation studies, and coverage assessment.
+  * Generation of curated datasets and visualizations for modeling and reporting.
+
+Refer to `scripts/README.md` for a detailed descriptions to scripts and their usage.
+Refer to  `docs/<scripts_name>.md` for detailed guides on how to utilisise the scripts.
+
+### 2\. Notebooks
+
+Located in `notebooks/`.
+This folder contains Jupyter notebooks for exploratory analysis, inspection, and visualization of datasets. Typical uses include:
+
+  * Inspecting merged and curated datasets interactively.
+  * Visualizing time series, distributions, and model outputs.
+  * Prototyping analysis workflows and validating pipeline results.
+
+Notebooks are designed for flexible, interactive exploration and are complementary to the automated scripts in the pipeline.
+
+### 3. Core Pipeline (`chinquinaria/`)
+
+**Target: Daily Dataset | Focus: Explainability**
+The central orchestration engine for the XAI workflow.
+* **Modeling:** Training and inference for Baseline regressors (XGBoost, LightGBM, Random Forest, MLP).
+* **Explainability:** Automated computation of SHAP values to quantify feature importance on specific time windows.
+* **LLM Reporting:** Generation of synthetic textual reports summarizing model insights using Large Language Models.
+
+### 4. Deep Forecasting (`deep_forecasting/`)
+
+**Target: Hourly Dataset | Focus: High-Resolution Forecasting**
+This module contains the advanced Deep Learning architectures described in the project report.
+* **Architectures:** Implementation of LSTM and Transformer-based models for time-series forecasting.
+* **Workflow:** Handles the specific pre-processing required for high-frequency hourly data, distinct from the daily aggregation pipeline.
+
+## Data Sources
+
+The framework relies on a specific set of data providers to model the environmental context accurately.
 
 | Source | Type | Description |
 |--------|------|-------------|
-| **APPA Trento** | Air Quality | PM10, NO₂, and other pollutant measurements from monitoring stations across Trentino |
-| **Meteo Trentino** | Meteorological | Temperature, precipitation, wind, pressure, radiation, and humidity data from Trentino |
-| **ARPAV** | Meteorological | Weather data from monitoring stations across Veneto region |
-| **Alto Adige** | Meteorological | Weather and hydrological data from 174 monitoring stations in Alto Adige/Südtirol |
-| **EEA** | Air Quality | European air quality data from multiple countries and stations |
-| **ERA5** | Reanalysis | Boundary Layer Height (BLH) data from Copernicus Climate Data Store |
+| **APPA Trento** | Air Quality | Primary source for PM10, NO2, and other pollutant measurements from provincial monitoring stations. |
+| **Meteo Trentino** | Meteorological | Local observation data including temperature, precipitation, wind speed/direction, and solar radiation. |
+| **ARPAV/ARPA** | Air Quality | Pollutant indicators data from the neighboring Veneto and Lombardia region. |
+| **EEA** | Air Quality | Pan-European dataset used for validation and broader context analysis. |
+| **ERA5 (Copernicus)** | Reanalysis | Boundary Layer Height (BLH) and other atmospheric variables not measured by ground stations. |
+| **Alto Adige / Südtirol** | Meteorological | Data from 174 monitoring stations in the Bolzano province, used for hydrological and meteorological context. |
 
-## 📦 Complete datasets
-
-| Version | Description | Google Drive link |
-|---------|-------------|-------------------|
-| **v1_day** | Data version 1 (2025-10-29), aggregation type: day | [link](https://drive.google.com/file/d/1EIqZAUtGsOI4ekDLiRoYPfLzY-vO-hfw/view?usp=drive_link)
-
-## 📁 Project Structure
-
-```
-appa-chinquinaria/
-├── data/                          # Data storage directory
-│   ├── data-samples/              # Sample datasets for testing and examples
-│   │   └── sample_blh_hourly_stations.csv
-│   ├── meteo-trentino/            # Meteo Trentino meteorological data
-│   ├── arpav/                     # ARPAV (Veneto) meteorological data
-│   ├── altoadige/                 # Alto Adige meteorological data
-│   ├── eea-data/                  # European Environment Agency data
-│   ├── eu-dtm/                    # Digital Terrain Model data
-│   └── data_blh/                  # ERA5 Boundary Layer Height data (created by scripts)
-│
-├── docs/                          # Documentation
-│   ├── appa-download-guide.md     # APPA Trento data download instructions
-│   ├── meteo-trentino-download-guide.md
-│   ├── altoadige-download-guide.md # Alto Adige data download instructions
-│   ├── eea-download-guide.md
-│   ├── blh-download-guide.md      # ERA5 BLH download instructions
-│   └── data-analysis-guide.md
-│
-├── scripts/                       # Data processing scripts
-│   ├── bulk_download_appa.py      # APPA Trento bulk downloader
-│   ├── bulk_download_meteo_trentino.py
-│   ├── bulk_download_arpav.py     # ARPAV (Veneto) bulk downloader
-│   ├── bulk_download_altoadige.py # Alto Adige bulk downloader
-│   ├── bulk_download_eea.py
-│   ├── download_blh.py            # ERA5 BLH downloader (requires CDS credentials)
-│   ├── build_blh_dataset.py       # Process ERA5 ZIP files into structured datasets
-│   ├── download_from_csv.py
-│   ├── list_station_variables.py
-│   ├── test_meteo_connection.py
-│   ├── test_arpav_functions.py    # Test ARPAV downloader functions
-│   ├── test_altoadige_connection.py # Test Alto Adige API connection
-│   ├── correlation_analysis.py    # Correlation analysis tools
-│   └── visualize_data.py
-│
-├── notebooks/                     # Jupyter notebooks for analysis and visualization
-│   └── visualization_blh_data.ipynb
-│
-├── requirements.txt               # Python dependencies
-└── README.md                      # This file
-```
-
-## 🍔 How to commit contributions
-Follow these steps to commit your contributions:
-1. **Create a new branch for your feature**
-```bash
-   git checkout -b my-feature-branch
-```
-2. **Work on your feature**
-
-   Make your changes, commit frequently, and test thoroughly.
-
-3. **Switch back to `main`**
-```bash
-   git checkout main
-```
-4. **Update `main` with the latest changes**
-```bash
-   git pull
-```
-5. **Merge your branch into `main`**
-```bash
-   git merge my-feature-branch
-```
-- ✅ If there are no conflicts, the merge will complete automatically.
-- ⚠️ If there are conflicts, Git will prompt you to resolve them manually. After resolving conflicts:
-```bash
-   git add .
-   git commit
-```
-6. **Push to remote**
-```bash
-   git push
-```
-
-## 🚀 Getting Started
+## Installation and Setup
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- For ERA5 data downloads: [CDS API credentials](https://cds.climate.copernicus.eu/api-how-to)
+  * Python 3.10 or higher.
+  * Virtual environment (recommended).
+  * API Credentials for Copernicus CDS (if downloading ERA5 data).
+  * LLM Backend Requirements: A valid API Key is required for proprietary services (e.g., OpenAI). Alternatively, for local execution of open-source models, high-performance computing resources (such as a High-VRAM GPU or Google Colab Pro+) are mandatory.
 
-### Installation
+### Installation Steps
 
-1. **Clone the repository**
-   ```bash
-   cd appa-chinquinaria
-   ```
+1.  **Clone the repository:**
 
-2. **Create and activate virtual environment** (recommended)
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+    ```bash
+    git clone <repository_url>
+    cd appa-chinquinaria
+    ```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2.  **Environment Setup:**
 
-4. **Configure CDS API** (for ERA5 data only)
-   
-   Create `~/.cdsapirc` with your Copernicus credentials:
-   ```
-   url: https://cds.climate.copernicus.eu/api
-   key: YOUR_API_KEY
-   ```
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # Windows: venv\Scripts\activate
+    pip install -r requirements.txt
+    ```
 
-5. **Create a `.env` file** (required for proprietary LLM use in `chinquinaria.pipeline`)
+3.  **Credentials Configuration:**
 
-   If you plan to usa a proprietary LLM (GPT-4.1), you need to provide an access token. In the root directory of the project, create a file named `.env` containing:
-   ```
-   GITHUB_TOKEN=your_personal_access_token_here 
-   ```
-## 📖 Usage
+      * **Copernicus CDS:** Create `~/.cdsapirc` with `url` and `key` fields.
+      * **LLM Services:** Create a `.env` file in the root directory containing the required tokens (e.g., `GITHUB_TOKEN` for Azure/OpenAI endpoints).
 
-### Execute complete pipeline
-To execute the complete pipeline set your configuration in `chinquinaria/config.py` and run:
+4.  **Pipeline Configuration:**
+    Modify `chinquinaria/config.py` to set dataset versions, date ranges, model types (`lightGBM`, `xgboost`, etc.), and execution flags.
+
+## Usage
+
+
+### XAI Workflow
+
+To run the XAI pipeline (Data Loading → Training → Inference → SHAP → Reporting):
+
 ```bash
 python -m chinquinaria.pipeline
 ```
 
-### Downloading APPA Trento Air Quality Data
+More instruction in the dedicated directory.
 
-Download air quality measurements from APPA Trento monitoring stations:
+### Forecasting Workflow
 
-```bash
-# Basic download for a date range
-python scripts/bulk_download_appa.py --start 2024-01-01 --end 2024-12-31
+To run the Forecasting models, execute the submodule inside the `deep_forecasting` directory (see documentation inside that direcotry for details):
 
-# Download specific stations with custom output directory
-python scripts/bulk_download_appa.py \
-    --start 2024-01-01 \
-    --end 2024-12-31 \
-    --stations "2,4,6,8" \
-    --output data/appa-2024
+### Framework Dual Sources Flow Diagram
+
+<div align="center">
+  <img src="assets/image.png" alt="Framework Dual Sources Flow Diagram" width="700">
+</div>
+
+
+### Technical constraints and troubleshooting
+
+  * **Memory Management:** Processing large ERA5 datasets may require significant RAM. It is recommended to use the Parquet format where possible and process data in chunks.
+  * **API Quotas:** Downloads from the Climate Data Store (CDS) are subject to queuing and rate limits. Verify credentials and quotas if downloads fail.
+  * **Deep Forecasting:** Scripts within `deep_forecasting/` are experimental and may require specific library versions different from the main pipeline. Refer to local documentation within that directory.
+
+## Project Structure
+
+```text
+appa-chinquinaria/
+├── chinquinaria/                # Core pipeline: modeling, explainability, reporting
+│   ├── config.py                # Pipeline configuration
+│   ├── pipeline.py              # Main orchestration script
+│   ├── data_loading/            # Data ingestion and splitting
+│   ├── explainability/          # SHAP explainability logic
+│   ├── llm_reporting/           # LLM-based reporting
+│   ├── modeling/                # ML & DL models (XGBoost, LightGBM, LSTM, etc.)
+│   ├── optuna/                  # Hyperparameter optimization
+│   └── utils/                   # Utilities (evaluation, logging, file I/O)
+├── scripts/                     # Data acquisition, merging, analysis, and visualization scripts
+│   ├── PostProcessing.py
+│   ├── filter_eea_by_proximity.py
+│   ├── merge_appa_meteo_trentino.py
+│   ├── merge_datasets_by_proximity.py
+│   ├── ... (other acquisition, curation, analysis, and plotting scripts)
+│   └── README.md                # Scripts documentation
+├── notebooks/                   # Jupyter notebooks for exploration and inspection
+│   ├── inspect_merged_dataset.ipynb
+│   ├── data_visualization.ipynb
+│   ├── ... (other analysis notebooks)
+├── deep_forecasting/            # Experimental SOTA forecasting models
+├── assets/                      # Images, diagrams, and visual assets
+├── docs/                        # Documentation and guides
+├── requirements.txt             # Python dependencies
+├── README.md                    # Project overview and instructions
+└── ...                          # Other modules, data, etc.
 ```
 
-See [`docs/appa-download-guide.md`](docs/appa-download-guide.md) for detailed usage.
+## Acknowledgments
 
-### Downloading Meteo Trentino Data
-
-Download meteorological data (temperature, wind, precipitation, etc.):
-
-```bash
-# Download all available data for a station
-python scripts/bulk_download_meteo_trentino.py \
-    --station-code T0129 \
-    --start-date 2024-01-01 \
-    --end-date 2024-12-31
-```
-
-See [`docs/meteo-trentino-download-guide.md`](docs/meteo-trentino-download-guide.md) for details.
-
-### Downloading ARPAV (Veneto) Data
-
-Download meteorological data from ARPAV stations in Veneto region:
-
-```bash
-# Download all sensors for 2023-2024
-python scripts/bulk_download_arpav.py \
-    --start-year 2023 \
-    --end-year 2024
-
-# Download specific sensors only
-python scripts/bulk_download_arpav.py \
-    --start-year 2023 \
-    --end-year 2023 \
-    --sensors "TEMPMIN,PREC,UMID"
-```
-
-Available sensors: TEMPMIN, PREC, UMID, RADSOL, VVENTOMEDIO, LIVIDRO, PORT, PRESSMARE
-
-See [`docs/arpav-download-guide.md`](docs/arpav-download-guide.md) for detailed information.
-
-### Downloading Alto Adige Data
-
-Download meteorological and hydrological data from Alto Adige monitoring stations:
-
-```bash
-# Download all sensors for 2023-2024
-python scripts/bulk_download_altoadige.py \
-    --start 2023 \
-    --end 2024
-
-# Download specific sensors only
-python scripts/bulk_download_altoadige.py \
-    --start 2023 \
-    --end 2024 \
-    --sensors "LT,N,Q"
-```
-
-Available sensors: LT (temperature), LF (humidity), N (precipitation), WG (wind speed), WR (wind direction), LD.RED (pressure), SD (sunshine), GS (radiation), HS (snow height), W (water level), Q (flow rate)
-
-See [`docs/altoadige-download-guide.md`](docs/altoadige-download-guide.md) for detailed information.
-
-### Downloading EEA Data
-
-Download European air quality data:
-
-```bash
-python scripts/bulk_download_eea.py \
-    --year 2024 \
-    --pollutant PM10 \
-    --country IT
-```
-
-See [`docs/eea-download-guide.md`](docs/eea-download-guide.md) for more information.
-
-### Downloading ERA5 Boundary Layer Height Data
-
-Download and process ERA5 boundary layer height reanalysis data:
-
-**Step 1: Download ERA5 data** (requires CDS credentials)
-
-```bash
-# Download BLH data for 2020-2025
-python scripts/download_blh.py \
-    --start-year 2020 \
-    --end-year 2025 \
-    --chunk-years 2 \
-    --area "47.67,4.61,43.54,16.12"
-```
-
-**Step 2: Build structured dataset**
-
-```bash
-# Process ZIP files and create hourly/daily datasets
-python scripts/build_blh_dataset.py \
-    --in-dir data_blh \
-    --out-dir data_blh/processed \
-    --csv
-```
-
-This creates:
-- `blh_hourly_all_stations.parquet` - Hourly BLH values
-- `blh_daily_all_stations.parquet` - Daily averaged BLH values
-- Optional CSV files if `--csv` flag is used
-
-See [`docs/blh-download-guide.md`](docs/blh-download-guide.md) for detailed information.
-
-### Data Visualization and Analysis
-
-Explore the notebooks for interactive analysis:
-
-```bash
-# Start Jupyter
-jupyter notebook notebooks/visualization_blh_data.ipynb
-```
-
-The visualization notebook includes:
-- Geographic visualization of monitoring stations and ERA5 grid cells
-- Time series analysis of boundary layer height
-- Station-to-grid mapping and distance calculations
-
-### Correlation Analysis
-
-Analyze relationships between meteorological variables and pollutants:
-
-```bash
-python scripts/correlation_analysis.py \
-    --aq-data data/appa-data.csv \
-    --meteo-data data/meteo-trentino/processed.csv \
-    --output results/
-```
-
-## 🔍 Key Features
-
-### Boundary Layer Height Analysis
-
-The **Mixing Layer Height (MLH)** or **Planetary Boundary Layer Height (PBLH)** is crucial for understanding pollutant dispersion:
-
-- **Low values (100–300 m)**: Stable atmosphere, pollutant accumulation
-- **High values (1000–2000 m)**: Strong mixing, efficient dispersion
-
-This metric helps:
-- Identify thermal inversion episodes
-- Predict air stagnation events
-- Correlate meteorological conditions with PM10/NO₂ concentrations
-
-### Resume-able Downloads
-
-All download scripts support:
-- State tracking with JSON files
-- Automatic resume of interrupted downloads
-- Chunk-based downloading to handle API limits
-
-### Multiple Data Formats
-
-- CSV, JSON, XML support for APPA data
-- NetCDF for ERA5 data
-- Parquet for efficient data storage and processing
-
-## 📚 Documentation
-
-Detailed guides are available in the `docs/` directory:
-
-- **[APPA Download Guide](docs/appa-download-guide.md)** - APPA Trento air quality data
-- **[Meteo Trentino Guide](docs/meteo-trentino-download-guide.md)** - Meteorological data (Trentino)
-- **[ARPAV Download Guide](docs/arpav-download-guide.md)** - Meteorological data (Veneto)
-- **[Alto Adige Download Guide](docs/altoadige-download-guide.md)** - Meteorological data (Alto Adige)
-- **[EEA Download Guide](docs/eea-download-guide.md)** - European air quality data
-- **[BLH Download Guide](docs/blh-download-guide.md)** - ERA5 boundary layer height
-- **[Data Analysis Guide](docs/data-analysis-guide.md)** - Analysis methodologies
-
-## 🛠️ Troubleshooting
-
-### CDS API Issues
-
-If ERA5 downloads fail:
-1. Verify your `~/.cdsapirc` credentials
-2. Check your CDS API quota at https://cds.climate.copernicus.eu
-3. Ensure you've accepted the ERA5 license terms
-
-### Memory Issues
-
-For large datasets:
-- Use Parquet format instead of CSV
-- Process data in chunks
-- Increase chunk size in download scripts
-
-### Missing Dependencies
-
-If you encounter import errors:
-```bash
-pip install --upgrade -r requirements.txt
-```
-
-## 📊 Sample Data
-
-Sample datasets are provided in `data/data-samples/` for testing and exploring the notebooks without downloading full datasets.
-
-## 🤝 Contributing
-
-When adding new features:
-1. Place scripts in `scripts/`
-2. Add documentation to `docs/`
-3. Update this README
-4. Keep data files in `data/` (ensure `.gitignore` excludes large files)
-
-## 📝 Notes
-
-- Large data files (*.nc, *.zip, *.parquet) are excluded from version control
-- Always verify downloaded data integrity before analysis
-- ERA5 downloads may take significant time due to CDS queue times
-
-## 📄 License
-
-This project is part of the University of Trento public AI challenge.
-
-## 🙏 Acknowledgments
-
-- **APPA Trento** for air quality monitoring data
-- **Meteo Trentino** for meteorological observations from Trentino region
-- **ARPAV** for meteorological data from Veneto region
-- **Provincia Autonoma di Bolzano - Alto Adige** for meteorological and hydrological data
-- **European Environment Agency** for European air quality data
-- **Copernicus Climate Data Store** for ERA5 reanalysis data
+Acknowledgment is given to APPA Trento, Meteo Trentino, ARPAV, the Autonomous Province of Bolzano, the European Environment Agency, and the Copernicus Climate Change Service for making the data used in this research available.
 

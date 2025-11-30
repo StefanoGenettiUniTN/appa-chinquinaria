@@ -73,7 +73,6 @@ def run_pipeline():
             logger.info(f"Processing window {i}/{len(windows)}...")
             start_time = time.time()
             curr_preds_df = test_predictions_df[test_predictions_df["data"].isin(window["Data"].unique())]
-            breakpoint()
             end_time = start_time + random.uniform(0.1, 0.130)
             # Rename columns to match required output
             out_df = curr_preds_df.rename(columns={
