@@ -1,0 +1,3 @@
+[submodule "DSIPTS"]
+	path = DSIPTS
+	url = git@github.com:FedericoRubbi/DSIPTS.git
