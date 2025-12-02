@@ -86,6 +86,8 @@ This component leverages the **DSIPTS** (Deep Learning Suite for Time Series) li
 * Handling the specific pre-processing required for high-frequency hourly data
 * Orchestrating training pipelines.
 
+The DSIPTS library was developed within [Fondazione Bruno Kessler](https://www.fbk.eu/en/) (FBK) and has been made publicly available as open source to further expand research in time-series forecasting.
+
 For detailed documentation on the DSIPTS library, refer to the [submodule repository](https://github.com/FedericoRubbi/DSIPTS).
 
 ## Data Sources
@@ -209,4 +211,6 @@ appa-chinquinaria/
 ## Acknowledgments
 
 Acknowledgment is given to APPA Trento, Meteo Trentino, ARPAV, the Autonomous Province of Bolzano, the European Environment Agency, and the Copernicus Climate Change Service for making the data used in this research available.
+
+Special thanks to Fondazione Bruno Kessler (FBK) for developing and open-sourcing the DSIPTS library, which forms the foundation of the deep forecasting component of this framework.
 
