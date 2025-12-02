@@ -18,7 +18,7 @@
 
 This framework was developed within the scope of the **Public AI Challenge**, an open innovation initiative designed to apply artificial intelligence to real-world problems in the public sector. The project is the result of a strategic collaboration between **Hub Innovazione Trentino (HIT)**, the **University of Trento**, and the **Autonomous Province of Trento**.
 
-The primary objective was to design and implement a robust analytical pipeline for the forecasting and explainability of air quality data, specifically addressing the operational needs of the **Agenzia provinciale per la protezione dell'ambiente (APPA)**.
+The primary objective was to design and implement a robust analytical pipeline for the forecasting and explainability of air quality data, specifically addressing the operational needs of the **Agenzia provinciale per la protezione dell'ambiente (APPA)**. A comprehensive technical report documenting the complete methodology and results is available [here](assets/Report.pdf).
 
 ### The Initiative
 
@@ -77,12 +77,16 @@ The central orchestration engine for the XAI workflow.
 * **Explainability:** Automated computation of SHAP values to quantify feature importance on specific time windows.
 * **LLM Reporting:** Generation of synthetic textual reports summarizing model insights using Large Language Models.
 
-### 4. Deep Forecasting (`deep_forecasting/`)
+### 4. Deep Forecasting (`DSIPTS/`)
 
 **Target: Hourly Dataset | Focus: High-Resolution Forecasting**
-This module contains the advanced Deep Learning architectures described in the project report.
-* **Architectures:** Implementation of LSTM and Transformer-based models for time-series forecasting.
-* **Workflow:** Handles the specific pre-processing required for high-frequency hourly data, distinct from the daily aggregation pipeline.
+This component leverages the **DSIPTS** (Deep Learning Suite for Time Series) library, a comprehensive framework for time-series forecasting developed as part of this project. The submodule implements state-of-the-art PyTorch architectures and provides tools for:
+* Training predictive models with various deep learning architectures (LSTM, Transformers)
+* Managing time-series data with controlled categorical features
+* Handling the specific pre-processing required for high-frequency hourly data
+* Orchestrating training pipelines.
+
+For detailed documentation on the DSIPTS library, refer to the [submodule repository](https://github.com/FedericoRubbi/DSIPTS).
 
 ## Data Sources
 
@@ -146,7 +150,16 @@ More instruction in the dedicated directory.
 
 ### Forecasting Workflow
 
-To run the Forecasting models, execute the submodule inside the `deep_forecasting` directory (see documentation inside that direcotry for details):
+The deep forecasting workflow is implemented using the **DSIPTS** submodule. To access and use this component:
+
+1. **Initialize the submodule:**
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+2. **Refer to the DSIPTS documentation** for training and inference instructions:
+   - [DSIPTS Repository](https://github.com/FedericoRubbi/DSIPTS)
+   - [DSIPTS Documentation](https://github.com/FedericoRubbi/DSIPTS#readme)
 
 ### Framework Dual Sources Flow Diagram
 
@@ -159,7 +172,7 @@ To run the Forecasting models, execute the submodule inside the `deep_forecastin
 
   * **Memory Management:** Processing large ERA5 datasets may require significant RAM. It is recommended to use the Parquet format where possible and process data in chunks.
   * **API Quotas:** Downloads from the Climate Data Store (CDS) are subject to queuing and rate limits. Verify credentials and quotas if downloads fail.
-  * **Deep Forecasting:** Scripts within `deep_forecasting/` are experimental and may require specific library versions different from the main pipeline. Refer to local documentation within that directory.
+  * **Deep Forecasting:** The DSIPTS submodule may require specific library versions and dependencies different from the main pipeline. Refer to the submodule's documentation for installation and configuration details.
 
 ## Project Structure
 
@@ -185,7 +198,7 @@ appa-chinquinaria/
 │   ├── inspect_merged_dataset.ipynb
 │   ├── data_visualization.ipynb
 │   ├── ... (other analysis notebooks)
-├── deep_forecasting/            # Experimental SOTA forecasting models
+├── DSIPTS/                      # Deep Learning Suite for Time Series (submodule)
 ├── assets/                      # Images, diagrams, and visual assets
 ├── docs/                        # Documentation and guides
 ├── requirements.txt             # Python dependencies
